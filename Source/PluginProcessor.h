@@ -3,6 +3,7 @@
 #include "DecayEnvelope.h"
 #include "DFAFSequencer.h"
 #include "DFAFVoice.h"
+#include "MoogLadderFilter.h"
 
 class DFAFProcessor : public juce::AudioProcessor
 {
@@ -32,8 +33,9 @@ public:
     void setStateInformation(const void*, int) override {}
 
 private:
-    DFAFSequencer sequencer;
-        DFAFVoice     voice;
+    DFAFSequencer   sequencer;
+        DFAFVoice       voice;
+        MoogLadderFilter filter;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 add_subdirectory(/Users/eriksode/JUCE JUCE)
 
 juce_add_plugin(DFAF
-    COMPANY_NAME "ErikSodersten"
+    COMPANY_NAME "DFAF"
     PLUGIN_MANUFACTURER_CODE Esod
     PLUGIN_CODE Dfaf
     FORMATS VST3 AU Standalone
@@ -31,6 +31,7 @@ source_group("Header Files" FILES
     Source/DecayEnvelope.h
     Source/DFAFSequencer.h
     Source/DFAFVoice.h
+    Source/MoogLadderFilter.h
 )
 
 source_group("Source Files" FILES

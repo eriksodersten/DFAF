@@ -13,6 +13,9 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     sequencer.prepare(sampleRate);
         sequencer.setTempo(120.0f);
         voice.prepare(sampleRate);
+        filter.prepare(sampleRate);
+        filter.setCutoff(800.0f);
+        filter.setResonance(0.4f);
 }
 void DFAFProcessor::releaseResources() {}
 
@@ -30,9 +33,9 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
             const auto& step = sequencer.getStep(stepIndex);
             voice.trigger(step.pitch, step.velocity);
         }
-        float sample = voice.process();
-        left[i]  = sample;
-        right[i] = sample;
+        float sample = filter.process(voice.process());
+                left[i]  = sample;
+                right[i] = sample;
     }
 }
 

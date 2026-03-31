@@ -11,7 +11,9 @@ DFAFProcessor::~DFAFProcessor() {}
 void DFAFProcessor::prepareToPlay(double sampleRate, int)
 {
     envelope.prepare(sampleRate);
-    envelope.setDecayTime(0.5f);
+        envelope.setDecayTime(0.5f);
+        sequencer.prepare(sampleRate);
+        sequencer.setTempo(120.0f);
 }
 void DFAFProcessor::releaseResources() {}
 

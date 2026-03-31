@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "DecayEnvelope.h"
+#include "DFAFSequencer.h"
 
 class DFAFProcessor : public juce::AudioProcessor
 {
@@ -31,6 +32,7 @@ public:
 
 private:
     DecayEnvelope envelope;
+        DFAFSequencer sequencer;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

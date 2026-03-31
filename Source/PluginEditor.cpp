@@ -14,12 +14,31 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     };
 
     add(vcoDecay); add(seqPitchMod); add(vco1EgAmount); add(vco1Frequency);
-    add(noiseLevel); add(cutoff); add(resonance); add(vcaEg); add(volume);
-    add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
-    add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
-    add(tempo);
-    for (int i = 0; i < 8; ++i) { add(stepPitch[i]); add(stepVelocity[i]); }
-}
+        add(noiseLevel); add(cutoff); add(resonance); add(vcaEg); add(volume);
+        add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
+        add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
+        add(tempo);
+        for (int i = 0; i < 8; ++i) { add(stepPitch[i]); add(stepVelocity[i]); }
+
+        auto& apvts = p.apvts;
+        vcoDecayAtt    = std::make_unique<SliderAttachment>(apvts, "vcoDecay",    vcoDecay);
+        vco1FreqAtt    = std::make_unique<SliderAttachment>(apvts, "vco1Freq",    vco1Frequency);
+        vco1EgAmtAtt   = std::make_unique<SliderAttachment>(apvts, "vco1EgAmt",   vco1EgAmount);
+        fmAmountAtt    = std::make_unique<SliderAttachment>(apvts, "fmAmount",    fmAmount);
+        vco2FreqAtt    = std::make_unique<SliderAttachment>(apvts, "vco2Freq",    vco2Frequency);
+        vco2EgAmtAtt   = std::make_unique<SliderAttachment>(apvts, "vco2EgAmt",   vco2EgAmount);
+        noiseLevelAtt  = std::make_unique<SliderAttachment>(apvts, "noiseLevel",  noiseLevel);
+        cutoffAtt      = std::make_unique<SliderAttachment>(apvts, "cutoff",      cutoff);
+        resonanceAtt   = std::make_unique<SliderAttachment>(apvts, "resonance",   resonance);
+        vcfDecayAtt    = std::make_unique<SliderAttachment>(apvts, "vcfDecay",    vcfDecay);
+        vcfEgAmtAtt    = std::make_unique<SliderAttachment>(apvts, "vcfEgAmt",    vcfEgAmount);
+        noiseVcfModAtt = std::make_unique<SliderAttachment>(apvts, "noiseVcfMod", noiseVcfMod);
+        vcaDecayAtt    = std::make_unique<SliderAttachment>(apvts, "vcaDecay",    vcaDecay);
+        vcaEgAtt       = std::make_unique<SliderAttachment>(apvts, "vcaEg",       vcaEg);
+        volumeAtt      = std::make_unique<SliderAttachment>(apvts, "volume",      volume);
+        tempoAtt       = std::make_unique<SliderAttachment>(apvts, "tempo",       tempo);
+    }
+
 
 void DFAFEditor::setupKnob(juce::Slider& s)
 {

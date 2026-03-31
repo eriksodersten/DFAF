@@ -29,11 +29,15 @@ public:
     const juce::String getProgramName(int) override { return {}; }
     void changeProgramName(int, const juce::String&) override {}
 
-    void getStateInformation(juce::MemoryBlock&) override {}
-    void setStateInformation(const void*, int) override {}
+    void getStateInformation(juce::MemoryBlock& destData) override;
+        void setStateInformation(const void* data, int sizeInBytes) override;
+
+        juce::AudioProcessorValueTreeState apvts;
+        static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
 private:
     DFAFSequencer   sequencer;
+        double currentSampleRate = 44100.0;
         DFAFVoice       voice;
         MoogLadderFilter filter;
 

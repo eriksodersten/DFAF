@@ -1,27 +1,70 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParameterLayout()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcoDecay",    "VCO Decay",     0.01f, 2.0f,  0.3f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vco1Freq",    "VCO 1 Freq",    20.0f, 2000.0f, 220.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vco1EgAmt",   "VCO 1 EG Amt", -24.0f, 24.0f,  0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("fmAmount",    "FM Amount",     0.0f,  1.0f,   0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vco2Freq",    "VCO 2 Freq",    20.0f, 2000.0f, 330.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vco2EgAmt",   "VCO 2 EG Amt", -24.0f, 24.0f,  0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("noiseLevel",  "Noise Level",   0.0f,  1.0f,   0.2f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("cutoff",      "Cutoff",        20.0f, 8000.0f, 800.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("resonance",   "Resonance",     0.0f,  1.0f,   0.4f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfDecay",    "VCF Decay",     0.01f, 2.0f,   0.3f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfEgAmt",    "VCF EG Amt",    0.0f,  1.0f,   0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("noiseVcfMod", "Noise VCF Mod", 0.0f,  1.0f,   0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaDecay",    "VCA Decay",     0.01f, 2.0f,   0.3f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaEg",       "VCA EG",        0.0f,  1.0f,   0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("volume",      "Volume",        0.0f,  1.0f,   0.8f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("tempo",       "Tempo",         40.0f, 240.0f, 120.0f));
+
+    return { params.begin(), params.end() };
+}
+
 DFAFProcessor::DFAFProcessor()
     : AudioProcessor(BusesProperties()
-        .withOutput("Output", juce::AudioChannelSet::stereo(), true))
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+      apvts(*this, nullptr, "DFAF", createParameterLayout())
 {}
 
 DFAFProcessor::~DFAFProcessor() {}
 
 void DFAFProcessor::prepareToPlay(double sampleRate, int)
 {
+    currentSampleRate = sampleRate;
     sequencer.prepare(sampleRate);
-        sequencer.setTempo(120.0f);
-        voice.prepare(sampleRate);
-        filter.prepare(sampleRate);
-        filter.setCutoff(800.0f);
-        filter.setResonance(0.4f);
+    sequencer.setTempo(120.0f);
+    voice.prepare(sampleRate);
+    filter.prepare(sampleRate);
+    filter.setCutoff(800.0f);
+    filter.setResonance(0.4f);
 }
 void DFAFProcessor::releaseResources() {}
 
 void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     buffer.clear();
+
+    // Läs parametrar från APVTS
+    float tempo      = apvts.getRawParameterValue("tempo")->load();
+    float cutoffVal  = apvts.getRawParameterValue("cutoff")->load();
+    float resVal     = apvts.getRawParameterValue("resonance")->load();
+    float volumeVal  = apvts.getRawParameterValue("volume")->load();
+    float vcoDecayVal = apvts.getRawParameterValue("vcoDecay")->load();
+    float vcaDecayVal = apvts.getRawParameterValue("vcaDecay")->load();
+    float fmVal      = apvts.getRawParameterValue("fmAmount")->load();
+
+    sequencer.setTempo(tempo);
+    filter.setCutoff(cutoffVal);
+    filter.setResonance(resVal);
+    voice.setDecayTime(vcoDecayVal);
+    voice.setVcaDecayTime(vcaDecayVal);
+    voice.setFmAmount(fmVal);
+
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);
 
@@ -31,17 +74,32 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         if (sequencer.tick(stepIndex))
         {
             const auto& step = sequencer.getStep(stepIndex);
-            voice.trigger(step.pitch, step.velocity);
+            voice.trigger(step.pitch, step.velocity, fmVal);
         }
-        float sample = filter.process(voice.process());
-                left[i]  = sample;
-                right[i] = sample;
+        float sample = filter.process(voice.process()) * volumeVal;
+        left[i]  = sample;
+        right[i] = sample;
     }
 }
+
 
 juce::AudioProcessorEditor* DFAFProcessor::createEditor()
 {
     return new DFAFEditor(*this);
+}
+
+void DFAFProcessor::getStateInformation(juce::MemoryBlock& destData)
+{
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml(state.createXml());
+    copyXmlToBinary(*xml, destData);
+}
+
+void DFAFProcessor::setStateInformation(const void* data, int sizeInBytes)
+{
+    std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
+    if (xml && xml->hasTagName(apvts.state.getType()))
+        apvts.replaceState(juce::ValueTree::fromXml(*xml));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

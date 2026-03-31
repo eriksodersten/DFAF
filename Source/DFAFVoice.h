@@ -14,9 +14,19 @@ public:
     }
 
     void setDecayTime(float seconds)
-    {
-        envelope.setDecayTime(seconds);
-    }
+        {
+            envelope.setDecayTime(seconds);
+        }
+
+        void setVcaDecayTime(float seconds)
+        {
+            envelope.setDecayTime(seconds);
+        }
+
+        void setFmAmount(float amount)
+        {
+            fm = amount;
+        }
 
     // pitch = MIDI note, velocity = 0.0–1.0, fmAmount = 0.0–1.0
     void trigger(float midiNote, float velocity, float fmAmount = 0.3f)

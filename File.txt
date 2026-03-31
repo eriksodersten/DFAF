@@ -38,6 +38,11 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         volumeAtt      = std::make_unique<SliderAttachment>(apvts, "volume",      volume);
         tempoAtt       = std::make_unique<SliderAttachment>(apvts, "tempo",       tempo);
     }
+    ```
+
+    ---
+    ```
+    /Users/eriksode/Projects/DFAF/deploy.sh
 
 void DFAFEditor::setupKnob(juce::Slider& s)
 {

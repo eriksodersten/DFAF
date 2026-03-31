@@ -50,20 +50,27 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     buffer.clear();
 
     // Läs parametrar från APVTS
-    float tempo      = apvts.getRawParameterValue("tempo")->load();
-    float cutoffVal  = apvts.getRawParameterValue("cutoff")->load();
-    float resVal     = apvts.getRawParameterValue("resonance")->load();
-    float volumeVal  = apvts.getRawParameterValue("volume")->load();
-    float vcoDecayVal = apvts.getRawParameterValue("vcoDecay")->load();
-    float vcaDecayVal = apvts.getRawParameterValue("vcaDecay")->load();
-    float fmVal      = apvts.getRawParameterValue("fmAmount")->load();
+    float tempo       = apvts.getRawParameterValue("tempo")->load();
+        float cutoffVal   = apvts.getRawParameterValue("cutoff")->load();
+        float resVal      = apvts.getRawParameterValue("resonance")->load();
+        float volumeVal   = apvts.getRawParameterValue("volume")->load();
+        float vcoDecayVal = apvts.getRawParameterValue("vcoDecay")->load();
+        float vcaDecayVal = apvts.getRawParameterValue("vcaDecay")->load();
+        float vcfDecayVal = apvts.getRawParameterValue("vcfDecay")->load();
+        float fmVal       = apvts.getRawParameterValue("fmAmount")->load();
+        float vco1EgAmt   = apvts.getRawParameterValue("vco1EgAmt")->load();
+        float vco2EgAmt   = apvts.getRawParameterValue("vco2EgAmt")->load();
+        float vcfEgAmt    = apvts.getRawParameterValue("vcfEgAmt")->load();
 
-    sequencer.setTempo(tempo);
-    filter.setCutoff(cutoffVal);
-    filter.setResonance(resVal);
-    voice.setDecayTime(vcoDecayVal);
-    voice.setVcaDecayTime(vcaDecayVal);
-    voice.setFmAmount(fmVal);
+        sequencer.setTempo(tempo);
+        filter.setResonance(resVal);
+        voice.setDecayTime(vcoDecayVal);
+        voice.setVcaDecayTime(vcaDecayVal);
+        voice.setVcfDecayTime(vcfDecayVal);
+        voice.setFmAmount(fmVal);
+        voice.setVco1EgAmount(vco1EgAmt);
+        voice.setVco2EgAmount(vco2EgAmt);
+        voice.setVcfEgAmount(vcfEgAmt);
 
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);
@@ -76,7 +83,11 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
             const auto& step = sequencer.getStep(stepIndex);
             voice.trigger(step.pitch, step.velocity, fmVal);
         }
-        float sample = filter.process(voice.process()) * volumeVal;
+        float vcfEnv = voice.getVcfEnvValue();
+                float modulatedCutoff = cutoffVal + vcfEgAmt * vcfEnv * 7000.0f;
+                modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
+                filter.setCutoff(modulatedCutoff);
+                float sample = filter.process(voice.process()) * volumeVal;
         left[i]  = sample;
         right[i] = sample;
     }

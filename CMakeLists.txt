@@ -16,6 +16,37 @@ juce_add_plugin(DFAF
 juce_generate_juce_header(DFAF)
 
 target_sources(DFAF PRIVATE
+    Source/PluginProcessor.h
+    Source/PluginEditor.h
+    Source/DecayEnvelope.h
+    Source/DFAFSequencer.h
+    Source/DFAFVoice.h
+    Source/PluginProcessor.cpp
+    Source/PluginEditor.cpp
+)
+
+source_group("Header Files" FILES
+    Source/PluginProcessor.h
+    Source/PluginEditor.h
+    Source/DecayEnvelope.h
+    Source/DFAFSequencer.h
+    Source/DFAFVoice.h
+)
+
+source_group("Source Files" FILES
+    Source/PluginProcessor.cpp
+    Source/PluginEditor.cpp
+)
+
+source_group("Header Files" FILES
+    Source/PluginProcessor.h
+    Source/PluginEditor.h
+    Source/DecayEnvelope.h
+    Source/DFAFSequencer.h
+    Source/DFAFVoice.h
+)
+
+source_group("Source Files" FILES
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
 )

@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 #include "DecayEnvelope.h"
 #include "DFAFSequencer.h"
+#include "DFAFVoice.h"
 
 class DFAFProcessor : public juce::AudioProcessor
 {
@@ -31,8 +32,8 @@ public:
     void setStateInformation(const void*, int) override {}
 
 private:
-    DecayEnvelope envelope;
-        DFAFSequencer sequencer;
+    DFAFSequencer sequencer;
+        DFAFVoice     voice;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include "DecayEnvelope.h"
 
 class DFAFProcessor : public juce::AudioProcessor
 {
@@ -27,4 +28,9 @@ public:
 
     void getStateInformation(juce::MemoryBlock&) override {}
     void setStateInformation(const void*, int) override {}
+
+private:
+    DecayEnvelope envelope;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

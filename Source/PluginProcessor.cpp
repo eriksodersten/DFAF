@@ -8,7 +8,11 @@ DFAFProcessor::DFAFProcessor()
 
 DFAFProcessor::~DFAFProcessor() {}
 
-void DFAFProcessor::prepareToPlay(double, int) {}
+void DFAFProcessor::prepareToPlay(double sampleRate, int)
+{
+    envelope.prepare(sampleRate);
+    envelope.setDecayTime(0.5f);
+}
 void DFAFProcessor::releaseResources() {}
 
 void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)

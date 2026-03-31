@@ -1,17 +1,117 @@
 #include "PluginEditor.h"
 
+static const juce::Colour panelBlack = juce::Colour(0xff1a1a1a);
+static const juce::Colour labelGrey  = juce::Colour(0xff555555);
+
 DFAFEditor::DFAFEditor(DFAFProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(600, 300);
+    setSize(1100, 380);
+
+    auto add = [this](juce::Slider& s) {
+        setupKnob(s);
+        addAndMakeVisible(s);
+    };
+
+    add(vcoDecay); add(seqPitchMod); add(vco1EgAmount); add(vco1Frequency);
+    add(noiseLevel); add(cutoff); add(resonance); add(vcaEg); add(volume);
+    add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
+    add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
+    add(tempo);
+    for (int i = 0; i < 8; ++i) { add(stepPitch[i]); add(stepVelocity[i]); }
+}
+
+void DFAFEditor::setupKnob(juce::Slider& s)
+{
+    s.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+    s.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    s.setRange(0.0, 1.0);
+    s.setValue(0.5);
+}
+
+void DFAFEditor::setupLabel(juce::Label& label, const juce::String& text)
+{
+    label.setText(text, juce::dontSendNotification);
+    label.setColour(juce::Label::textColourId, labelGrey);
+    label.setJustificationType(juce::Justification::centred);
 }
 
 void DFAFEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black);
-    g.setColour(juce::Colours::white);
-    g.setFont(20.0f);
-    g.drawText("DFAF", getLocalBounds(), juce::Justification::centred);
+    g.fillAll(panelBlack);
+
+    const int W  = getWidth();
+    const int kS = W / 9;
+
+    g.setColour(juce::Colour(0xff333333));
+    g.drawLine(0.0f, 130.0f, (float)W, 130.0f, 0.5f);
+    g.drawLine(0.0f, 245.0f, (float)W, 245.0f, 0.5f);
+
+    g.setColour(labelGrey);
+    g.setFont(juce::FontOptions(8.5f));
+
+    // Row 1 labels
+    const char* top[] = {
+        "VCO DECAY","SEQ PITCH MOD","VCO 1 EG AMT","VCO 1 FREQ",
+        "NOISE/EXT LVL","CUTOFF","RESONANCE","VCA EG","VOLUME"
+    };
+    for (int i = 0; i < 9; ++i)
+        g.drawText(top[i], i * kS, 8, kS, 11, juce::Justification::centred);
+
+    // Row 2 labels
+    const char* bot[] = {
+        "1-2 FM AMT","VCO 2 EG AMT","VCO 2 FREQ",
+        "VCF DECAY","VCF EG AMT","NOISE/VCF MOD","VCA DECAY"
+    };
+    int botSlots[] = { 0, 2, 3, 5, 6, 7, 8 };
+    for (int i = 0; i < 7; ++i)
+        g.drawText(bot[i], botSlots[i] * kS, 138, kS, 11, juce::Justification::centred);
+
+    // Sequencer labels
+    g.drawText("TEMPO", 10, 252, 120, 11, juce::Justification::centred);
+
+    const int seqX = 140;
+    const int stepW = (W - seqX) / 8;
+    for (int i = 0; i < 8; ++i)
+        g.drawText(juce::String(i + 1), seqX + i * stepW, 252, stepW, 11, juce::Justification::centred);
+
+    g.drawText("PITCH",    10, 276, 120, 11, juce::Justification::centred);
+    g.drawText("VELOCITY", 10, 336, 120, 11, juce::Justification::centred);
 }
 
-void DFAFEditor::resized() {}
+void DFAFEditor::resized()
+{
+    const int W    = getWidth();
+    const int kS   = W / 9;
+    const int kSz  = 52;
+    const int sSz  = 38;
+
+    // Row 1 – 9 knobs, y=18
+    juce::Slider* row1[] = {
+        &vcoDecay,&seqPitchMod,&vco1EgAmount,&vco1Frequency,
+        &noiseLevel,&cutoff,&resonance,&vcaEg,&volume
+    };
+    for (int i = 0; i < 9; ++i)
+        row1[i]->setBounds(i * kS + (kS - kSz) / 2, 18, kSz, kSz);
+
+    // Row 2 – 7 knobs, y=148
+    int slots[] = { 0, 2, 3, 5, 6, 7, 8 };
+    juce::Slider* row2[] = {
+        &fmAmount,&vco2EgAmount,&vco2Frequency,
+        &vcfDecay,&vcfEgAmount,&noiseVcfMod,&vcaDecay
+    };
+    for (int i = 0; i < 7; ++i)
+        row2[i]->setBounds(slots[i] * kS + (kS - kSz) / 2, 148, kSz, kSz);
+
+    // Sequencer – y=263 (pitch), y=323 (velocity)
+    tempo.setBounds(10, 260, kSz + 10, kSz + 10);
+
+    const int seqX  = 140;
+    const int stepW = (W - seqX) / 8;
+    for (int i = 0; i < 8; ++i)
+    {
+        int x = seqX + i * stepW + (stepW - sSz) / 2;
+        stepPitch[i].setBounds(x, 263, sSz, sSz);
+        stepVelocity[i].setBounds(x, 323, sSz, sSz);
+    }
+}

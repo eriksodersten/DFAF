@@ -38,6 +38,7 @@ public:
 private:
     DFAFSequencer   sequencer;
         double currentSampleRate = 44100.0;
+        juce::Random    noiseRandom;
         DFAFVoice       voice;
         MoogLadderFilter filter;
 

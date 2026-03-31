@@ -109,6 +109,7 @@ private:
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     std::unique_ptr<SliderAttachment> vcoDecayAtt, vco1FreqAtt, vco1EgAmtAtt;
+        std::unique_ptr<SliderAttachment> vco1LevelAtt, vco2LevelAtt;
     std::unique_ptr<SliderAttachment> fmAmountAtt, vco2FreqAtt, vco2EgAmtAtt;
     std::unique_ptr<SliderAttachment> noiseLevelAtt, cutoffAtt, resonanceAtt;
     std::unique_ptr<SliderAttachment> vcfDecayAtt, vcfEgAmtAtt, noiseVcfModAtt;

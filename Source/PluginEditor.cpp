@@ -29,6 +29,8 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     vco2FreqAtt    = std::make_unique<SliderAttachment>(apvts, "vco2Freq",    vco2Frequency);
     vco2EgAmtAtt   = std::make_unique<SliderAttachment>(apvts, "vco2EgAmt",   vco2EgAmount);
     noiseLevelAtt  = std::make_unique<SliderAttachment>(apvts, "noiseLevel",  noiseLevel);
+        vco1LevelAtt   = std::make_unique<SliderAttachment>(apvts, "vco1Level",   vco1Level);
+        vco2LevelAtt   = std::make_unique<SliderAttachment>(apvts, "vco2Level",   vco2Level);
     cutoffAtt      = std::make_unique<SliderAttachment>(apvts, "cutoff",      cutoff);
     resonanceAtt   = std::make_unique<SliderAttachment>(apvts, "resonance",   resonance);
     vcfDecayAtt    = std::make_unique<SliderAttachment>(apvts, "vcfDecay",    vcfDecay);

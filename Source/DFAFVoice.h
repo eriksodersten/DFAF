@@ -22,6 +22,9 @@ public:
     void setVco1EgAmount(float semitones) { vco1EgAmt = semitones; }
     void setVco2EgAmount(float semitones) { vco2EgAmt = semitones; }
     void setVcfEgAmount(float amount)     { vcfEgAmt = amount; }
+    void setNoiseLevel(float level) { noiseLevel = level; }
+        void setVco1Level(float level)  { vco1Level = level; }
+        void setVco2Level(float level)  { vco2Level = level; }
 
     // Returnerar senaste VCF EG-värde för användning i processorn
     float getVcfEnvValue() const { return lastVcfEnv; }
@@ -67,10 +70,10 @@ public:
         if (phase1 >= 1.0f) phase1 -= 1.0f;
 
         // Noise
-        float noise = random.nextFloat() * 2.0f - 1.0f;
+                float noise = random.nextFloat() * 2.0f - 1.0f;
 
-        float toneAmp = vcoEnv;  // VCO decay dämpar tonen (VCO1+VCO2)
-                float mix = vco1 * 0.6f * toneAmp + vco2 * 0.2f * toneAmp + noise * 0.2f;
+        float toneAmp = vcoEnv;
+                float mix = vco1 * vco1Level * toneAmp + vco2 * vco2Level * toneAmp + noise * noiseLevel;
                 float vcaLinear = vcaEnv * vcaEnv;
                 return mix * vcaLinear * vel;
     }
@@ -95,6 +98,9 @@ private:
     float vco2EgAmt    = 0.0f;
     float vcfEgAmt     = 0.0f;
     float lastVcfEnv   = 0.0f;
+    float noiseLevel   = 0.2f;
+        float vco1Level    = 0.6f;
+        float vco2Level    = 0.2f;
 
     DecayEnvelope vcoEnvelope;
     DecayEnvelope vcaEnvelope;

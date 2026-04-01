@@ -1,4 +1,5 @@
 #pragma once
+#include <JuceHeader.h>
 
 class DecayEnvelope
 {
@@ -22,6 +23,11 @@ public:
         value = 1.0f;
     }
 
+    void triggerSoft(float startValue)
+    {
+        value = startValue;
+    }
+
     float process()
     {
         value *= coeff;
@@ -39,7 +45,7 @@ private:
             coeff = 0.0f;
     }
 
-    double sr      = 44100.0;
+    double sr       = 44100.0;
     float decayTime = 0.5f;
     float coeff     = 0.0f;
     float value     = 0.0f;

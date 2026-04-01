@@ -30,8 +30,8 @@ public:
     void setVco2BaseFreq(float hz)        { vco2BaseFreq = hz; }
     void setSeqPitchRouting(int routing)  { seqPitchRouting = routing; }
     void setHardSync(bool enabled)        { hardSync = enabled; }
-        void setVco1Wave(int wave)            { vco1Wave = wave; } // 0=sine, 1=triangle
-        void setVco2Wave(int wave)            { vco2Wave = wave; }
+    void setVco1Wave(int wave)            { vco1Wave = wave; }
+    void setVco2Wave(int wave)            { vco2Wave = wave; }
 
     float getVcfEnvValue() const { return lastVcfEnv; }
 
@@ -43,17 +43,17 @@ public:
         float base1 = vco1BaseFreq > 0.0f ? vco1BaseFreq : midiNoteToHz(60.0f);
         float base2 = vco2BaseFreq > 0.0f ? vco2BaseFreq : midiNoteToHz(67.0f);
 
-        if (seqPitchRouting == 0) // VCO 1&2
+        if (seqPitchRouting == 0)
         {
             freq1 = base1 * std::pow(2.0f, seqOffset / 12.0f);
             freq2 = base2 * std::pow(2.0f, seqOffset / 12.0f);
         }
-        else if (seqPitchRouting == 1) // OFF
+        else if (seqPitchRouting == 1)
         {
             freq1 = base1;
             freq2 = base2;
         }
-        else // VCO 2 only
+        else
         {
             freq1 = base1;
             freq2 = base2 * std::pow(2.0f, seqOffset / 12.0f);
@@ -61,9 +61,12 @@ public:
 
         fm  = fmAmount;
         vel = velocity;
+        if (vco1Wave == 1) phaseDir1 = 1.0f;
+        if (vco2Wave == 1) phaseDir2 = 1.0f;
+        float startVca = (vco1Wave == 1 || vco2Wave == 1) ? std::sqrt(lastVcaEnv) : 1.0f;
         vcoEnvelope.trigger();
-                vcaEnvelope.trigger();
-                vcfEnvelope.trigger();
+        vcaEnvelope.trigger();
+        vcfEnvelope.trigger();
     }
 
     float process()
@@ -79,47 +82,49 @@ public:
         float modFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv / 12.0f);
 
         // VCO2
-                float vco2out;
-                if (vco2Wave == 0)
-                {
-                    vco2out = (phase2 < 0.5f ? 1.0f : -1.0f);
-                }
-                else
-                {
-                                float p2 = phase2 * 4.0f;
-                                float tri2 = (p2 < 1.0f) ? p2 : (p2 < 3.0f) ? 2.0f - p2 : p2 - 4.0f;
-                                vco2out = std::tanh(2.2f * tri2) / std::tanh(2.2f);
-                            }
-                float inst2 = modFreq2 / (float)sr * phaseDir2;
-                phase2 += inst2;
-                if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
-                if (phase2 < 0.0f)  { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
+        float vco2out;
+        if (vco2Wave == 0)
+        {
+            vco2out = (phase2 < 0.5f ? 1.0f : -1.0f);
+        }
+        else
+        {
+            float p2 = phase2 * 4.0f;
+            float tri2 = (p2 < 1.0f) ? p2 : (p2 < 3.0f) ? 2.0f - p2 : p2 - 4.0f;
+            vco2out = std::tanh(2.2f * tri2) / std::tanh(2.2f);
+        }
+        float inst2 = modFreq2 / (float)sr * phaseDir2;
+        phase2 += inst2;
+        if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
+        if (phase2 < 0.0f)  { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
 
-                // VCO1 – through-zero FM
-                float instFreq1 = modFreq1 + fm * modFreq1 * vco2out;
-                float inst1 = instFreq1 / (float)sr * phaseDir1;
-                phase1 += inst1;
-                bool sync1 = false;
-                if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
-                if (phase1 < 0.0f)  { phase1 = -phase1;        phaseDir1 = -phaseDir1; sync1 = true; }
-                if (hardSync && sync1) { phase2 = 0.0f; phaseDir2 = 1.0f; }
+        // VCO1 – through-zero FM
+        float instFreq1 = modFreq1 + fm * modFreq1 * vco2out;
+        float inst1 = instFreq1 / (float)sr * phaseDir1;
+        phase1 += inst1;
+        bool sync1 = false;
+        if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
+        if (phase1 < 0.0f)  { phase1 = -phase1;        phaseDir1 = -phaseDir1; sync1 = true; }
+        if (hardSync && sync1) { phase2 = 0.0f; phaseDir2 = 1.0f; }
 
-                float vco1out;
-                if (vco1Wave == 0)
-                {
-                    vco1out = (phase1 < 0.5f ? 1.0f : -1.0f) * phaseDir1;
-                }
-                else
-                {
-                    float p1 = phase1 * 4.0f;
-                                float tri1 = ((p1 < 1.0f) ? p1 : (p1 < 3.0f) ? 2.0f - p1 : p1 - 4.0f) * phaseDir1;
-                                vco1out = std::tanh(2.2f * tri1) / std::tanh(2.2f);
-                            }
+        float vco1out;
+        if (vco1Wave == 0)
+        {
+            vco1out = (phase1 < 0.5f ? 1.0f : -1.0f) * phaseDir1;
+        }
+        else
+        {
+            float p1 = phase1 * 4.0f;
+            float tri1 = (p1 < 1.0f) ? p1 : (p1 < 3.0f) ? 2.0f - p1 : p1 - 4.0f;
+            vco1out = std::tanh(2.2f * tri1) / std::tanh(2.2f) * phaseDir1;
+        }
+
         float noise = random.nextFloat() * 2.0f - 1.0f;
 
         float toneAmp = vcoEnv;
         float mix = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
         float vcaLinear = vcaEnv * vcaEnv;
+        lastVcaEnv = vcaLinear;
         return mix * vcaLinear * vcaEgAmount * vel;
     }
 
@@ -138,13 +143,14 @@ private:
     float fm              = 0.3f;
     float vel             = 1.0f;
     float phase1          = 0.0f;
-        float phase2          = 0.0f;
-        float phaseDir1       = 1.0f;
-        float phaseDir2       = 1.0f;
+    float phase2          = 0.0f;
+    float phaseDir1       = 1.0f;
+    float phaseDir2       = 1.0f;
     float vco1EgAmt       = 0.0f;
     float vco2EgAmt       = 0.0f;
     float vcfEgAmt        = 0.0f;
     float lastVcfEnv      = 0.0f;
+    float lastVcaEnv      = 0.0f;
     float noiseLevel      = 0.2f;
     float vco1Level       = 0.6f;
     float vco2Level       = 0.2f;
@@ -152,8 +158,8 @@ private:
     float vco1BaseFreq    = 0.0f;
     float vco2BaseFreq    = 0.0f;
     int   seqPitchRouting = 0;
-        int   vco1Wave        = 0;
-        int   vco2Wave        = 0;
+    int   vco1Wave        = 0;
+    int   vco2Wave        = 0;
     bool  hardSync        = false;
 
     DecayEnvelope vcoEnvelope;

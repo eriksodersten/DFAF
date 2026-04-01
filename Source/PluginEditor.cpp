@@ -21,10 +21,20 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         seqPitchModBox.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(seqPitchModBox);
 
-        hardSyncBox.addItem("ON",  1);
+    hardSyncBox.addItem("ON",  1);
         hardSyncBox.addItem("OFF", 2);
         hardSyncBox.setJustificationType(juce::Justification::centred);
         addAndMakeVisible(hardSyncBox);
+
+    vco1WaveBox.addItem("Square",   1);
+        vco1WaveBox.addItem("Triangle", 2);
+        vco1WaveBox.setJustificationType(juce::Justification::centred);
+        addAndMakeVisible(vco1WaveBox);
+
+    vco2WaveBox.addItem("Square",   1);
+        vco2WaveBox.addItem("Triangle", 2);
+        vco2WaveBox.setJustificationType(juce::Justification::centred);
+        addAndMakeVisible(vco2WaveBox);
     add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(vcaEg); add(volume);
     add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
     add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
@@ -35,8 +45,12 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     vcoDecayAtt       = std::make_unique<SliderAttachment>(apvts, "vcoDecay", vcoDecay);
     seqPitchModBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
             apvts, "seqPitchMod", seqPitchModBox);
-        hardSyncBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+    hardSyncBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
             apvts, "hardSync", hardSyncBox);
+        vco1WaveBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+            apvts, "vco1Wave", vco1WaveBox);
+        vco2WaveBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+            apvts, "vco2Wave", vco2WaveBox);
     vco1FreqAtt    = std::make_unique<SliderAttachment>(apvts, "vco1Freq",    vco1Frequency);
     vco1EgAmtAtt   = std::make_unique<SliderAttachment>(apvts, "vco1EgAmt",   vco1EgAmount);
     fmAmountAtt    = std::make_unique<SliderAttachment>(apvts, "fmAmount",    fmAmount);
@@ -237,16 +251,12 @@ void DFAFEditor::paint(juce::Graphics& g)
     g.drawText("VCF", offX + 6*kS - kS/2, 8, kS/2, 10, juce::Justification::centred);
 
     // Switches row 1: VCO1 WAVE, VCF HP/LP
-    drawSwitch(g, (float)(offX + 4*kS), 20.0f, (float)kS, 118.0f, "",
-               juce::StringArray({"Л", "^"}));
     drawSwitch(g, (float)(offX + 6*kS - kS/2), 20.0f, (float)(kS/2), 118.0f, "",
                juce::StringArray({"HP", "LP"}));
 
     // Switches row 2: HARD SYNC, VCO2 WAVE, VCA EG FAST/SLOW
     drawSwitch(g, (float)(offX + 1*kS), 178.0f, (float)kS, 100.0f, "",
                juce::StringArray({"ON", "OFF"}));
-    drawSwitch(g, (float)(offX + 4*kS), 178.0f, (float)kS, 100.0f, "",
-               juce::StringArray({"Л", "^"}));
 
     // Sequencer labels
     g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
@@ -316,7 +326,9 @@ void DFAFEditor::resized()
     const int sSz   = 30;
 
     seqPitchModBox.setBounds(offX + 1*kS + (kS-60)/2, 50, 60, 22);
-        hardSyncBox.setBounds(offX + 1*kS + (kS-60)/2, 210, 60, 22);
+    hardSyncBox.setBounds(offX + 1*kS + (kS-60)/2, 210, 60, 22);
+        vco1WaveBox.setBounds(offX + 4*kS + (kS-60)/2, 50, 60, 22);
+        vco2WaveBox.setBounds(offX + 4*kS + (kS-60)/2, 210, 60, 22);
 
     int r1slots[]  = { 0, 2, 3, 5, 6, 7, 8, 9, 10 };
         juce::Slider* row1[] = {

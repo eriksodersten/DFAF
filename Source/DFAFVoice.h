@@ -30,6 +30,8 @@ public:
     void setVco2BaseFreq(float hz)        { vco2BaseFreq = hz; }
     void setSeqPitchRouting(int routing)  { seqPitchRouting = routing; }
     void setHardSync(bool enabled)        { hardSync = enabled; }
+        void setVco1Wave(int wave)            { vco1Wave = wave; } // 0=sine, 1=triangle
+        void setVco2Wave(int wave)            { vco2Wave = wave; }
 
     float getVcfEnvValue() const { return lastVcfEnv; }
 
@@ -78,12 +80,16 @@ public:
         float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv / 12.0f);
         float modFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv / 12.0f);
 
-        float vco2out = std::sin(phase2 * juce::MathConstants<float>::twoPi);
+        float vco2out = (vco2Wave == 0)
+                    ? (phase2 < 0.5f ? 1.0f : -1.0f)          // square
+                    : 1.0f - 4.0f * std::abs(phase2 - 0.5f);  // triangle
         phase2 += modFreq2 / (float)sr;
         if (phase2 >= 1.0f) phase2 -= 1.0f;
 
         float fmOffset = fm * modFreq1 * vco2out;
-        float vco1out = std::sin(phase1 * juce::MathConstants<float>::twoPi);
+        float vco1out = (vco1Wave == 0)
+                    ? (phase1 < 0.5f ? 1.0f : -1.0f)          // square
+                    : 1.0f - 4.0f * std::abs(phase1 - 0.5f);  // triangle
         phase1 += (modFreq1 + fmOffset) / (float)sr;
         if (phase1 >= 1.0f)
         {
@@ -126,6 +132,8 @@ private:
     float vco1BaseFreq    = 0.0f;
     float vco2BaseFreq    = 0.0f;
     int   seqPitchRouting = 0;
+        int   vco1Wave        = 0;
+        int   vco2Wave        = 0;
     bool  hardSync        = false;
 
     DecayEnvelope vcoEnvelope;

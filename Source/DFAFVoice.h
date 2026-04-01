@@ -28,6 +28,7 @@ public:
     void setVco1BaseFreq(float hz)        { vco1BaseFreq = hz; }
     void setVco2BaseFreq(float hz)        { vco2BaseFreq = hz; }
     void setSeqPitchRouting(int routing)  { seqPitchRouting = routing; }
+        void setHardSync(bool enabled)        { hardSync = enabled; }
 
     float getVcfEnvValue() const { return lastVcfEnv; }
 
@@ -80,13 +81,19 @@ public:
         juce::ignoreUnused(note1, note2);
 
         float vco2out = std::sin(phase2 * juce::MathConstants<float>::twoPi);
-        phase2 += modFreq2 / (float)sr;
-        if (phase2 >= 1.0f) phase2 -= 1.0f;
+                phase2 += modFreq2 / (float)sr;
+                if (phase2 >= 1.0f) phase2 -= 1.0f;
 
-        float fmOffset = fm * modFreq1 * vco2out;
-        float vco1out = std::sin(phase1 * juce::MathConstants<float>::twoPi);
-        phase1 += (modFreq1 + fmOffset) / (float)sr;
-        if (phase1 >= 1.0f) phase1 -= 1.0f;
+                float fmOffset = fm * modFreq1 * vco2out;
+                float vco1out = std::sin(phase1 * juce::MathConstants<float>::twoPi);
+                float prevPhase1 = phase1;
+                phase1 += (modFreq1 + fmOffset) / (float)sr;
+                if (phase1 >= 1.0f)
+                {
+                    phase1 -= 1.0f;
+                    if (hardSync) phase2 = 0.0f; // reset VCO2 on VCO1 cycle
+                }
+                juce::ignoreUnused(prevPhase1);
 
         float noise = random.nextFloat() * 2.0f - 1.0f;
 
@@ -122,6 +129,7 @@ private:
     float vco1BaseFreq  = 0.0f;
     float vco2BaseFreq  = 0.0f;
     int   seqPitchRouting = 0;
+        bool  hardSync        = false;
 
     DecayEnvelope vcoEnvelope;
     DecayEnvelope vcaEnvelope;

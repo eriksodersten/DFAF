@@ -19,7 +19,12 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         seqPitchModBox.addItem("OFF",     2);
         seqPitchModBox.addItem("VCO 2",   3);
         seqPitchModBox.setJustificationType(juce::Justification::centred);
-        addAndMakeVisible(seqPitchModBox);
+    addAndMakeVisible(seqPitchModBox);
+
+        hardSyncBox.addItem("ON",  1);
+        hardSyncBox.addItem("OFF", 2);
+        hardSyncBox.setJustificationType(juce::Justification::centred);
+        addAndMakeVisible(hardSyncBox);
     add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(volume);
     add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
     add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
@@ -28,8 +33,10 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
 
     auto& apvts = p.apvts;
     vcoDecayAtt       = std::make_unique<SliderAttachment>(apvts, "vcoDecay", vcoDecay);
-        seqPitchModBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+    seqPitchModBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
             apvts, "seqPitchMod", seqPitchModBox);
+        hardSyncBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+            apvts, "hardSync", hardSyncBox);
     vco1FreqAtt    = std::make_unique<SliderAttachment>(apvts, "vco1Freq",    vco1Frequency);
     vco1EgAmtAtt   = std::make_unique<SliderAttachment>(apvts, "vco1EgAmt",   vco1EgAmount);
     fmAmountAtt    = std::make_unique<SliderAttachment>(apvts, "fmAmount",    fmAmount);
@@ -311,6 +318,7 @@ void DFAFEditor::resized()
     const int sSz   = 30;
 
     seqPitchModBox.setBounds(offX + 1*kS + (kS-60)/2, 50, 60, 22);
+        hardSyncBox.setBounds(offX + 1*kS + (kS-60)/2, 210, 60, 22);
 
         int r1slots[]  = { 0, 2, 3, 5, 6, 7, 8, 10 };
         juce::Slider* row1[] = {

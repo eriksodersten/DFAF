@@ -23,8 +23,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaEg",       "VCA EG",        0.0f,  1.0f,    0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("volume",      "Volume",        0.0f,  1.0f,    0.8f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("tempo",       "Tempo",         40.0f, 240.0f,  120.0f));
-        params.push_back(std::make_unique<juce::AudioParameterChoice>("seqPitchMod", "SEQ Pitch Mod",
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("seqPitchMod", "SEQ Pitch Mod",
             juce::StringArray({ "VCO 1&2", "OFF", "VCO 2" }), 0));
+        params.push_back(std::make_unique<juce::AudioParameterBool>("hardSync", "Hard Sync", false));
 
     return { params.begin(), params.end() };
 }
@@ -81,7 +82,8 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     voice.setFmAmount(fmVal);
     voice.setVco1BaseFreq(vco1Freq);
         voice.setVco2BaseFreq(vco2Freq);
-        voice.setSeqPitchRouting(seqPitchRouting);
+    voice.setSeqPitchRouting(seqPitchRouting);
+        voice.setHardSync(apvts.getRawParameterValue("hardSync")->load() > 0.5f);
         voice.setVco1EgAmount(vco1EgAmt);
     voice.setVco2EgAmount(vco2EgAmt);
     voice.setVcfEgAmount(vcfEgAmt);

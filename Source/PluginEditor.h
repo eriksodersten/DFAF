@@ -117,8 +117,8 @@ private:
     std::unique_ptr<SliderAttachment> vcoDecayAtt, vco1FreqAtt, vco1EgAmtAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> seqPitchModBoxAtt;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> hardSyncBoxAtt;
-        juce::ComboBox vco1WaveBox, vco2WaveBox;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> vco1WaveBoxAtt, vco2WaveBoxAtt;
+    juce::ComboBox vco1WaveBox, vco2WaveBox, vcfModeBox;
+            std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> vco1WaveBoxAtt, vco2WaveBoxAtt, vcfModeBoxAtt;
         std::unique_ptr<SliderAttachment> vco1LevelAtt, vco2LevelAtt;
     std::unique_ptr<SliderAttachment> fmAmountAtt, vco2FreqAtt, vco2EgAmtAtt;
     std::unique_ptr<SliderAttachment> noiseLevelAtt, cutoffAtt, resonanceAtt;

@@ -36,8 +36,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterBool>("hardSync", "Hard Sync", false));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("vco1Wave", "VCO 1 Wave",
             juce::StringArray({ "Square", "Triangle" }), 0));
-        params.push_back(std::make_unique<juce::AudioParameterChoice>("vco2Wave", "VCO 2 Wave",
-            juce::StringArray({ "Square", "Triangle" }), 0));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("vco2Wave", "VCO 2 Wave",
+                juce::StringArray({ "Square", "Triangle" }), 0));
+        params.push_back(std::make_unique<juce::AudioParameterChoice>("vcfMode", "VCF Mode",
+                juce::StringArray({ "LP", "HP" }), 0));
 
     return { params.begin(), params.end() };
 }
@@ -119,8 +121,9 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         voice.setVco2BaseFreq(vco2Freq);
     voice.setSeqPitchRouting(seqPitchRouting);
     voice.setHardSync(apvts.getRawParameterValue("hardSync")->load() > 0.5f);
-        voice.setVco1Wave((int)apvts.getRawParameterValue("vco1Wave")->load());
+    voice.setVco1Wave((int)apvts.getRawParameterValue("vco1Wave")->load());
         voice.setVco2Wave((int)apvts.getRawParameterValue("vco2Wave")->load());
+        filter.setHighpass((int)apvts.getRawParameterValue("vcfMode")->load() == 1);
         voice.setVco1EgAmount(vco1EgAmt);
     voice.setVco2EgAmount(vco2EgAmt);
     voice.setVcfEgAmount(vcfEgAmt);

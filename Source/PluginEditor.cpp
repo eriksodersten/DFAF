@@ -33,9 +33,14 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         addAndMakeVisible(vco1WaveBox);
 
     vco2WaveBox.addItem("Square",   1);
-        vco2WaveBox.addItem("Triangle", 2);
-        vco2WaveBox.setJustificationType(juce::Justification::centred);
-        addAndMakeVisible(vco2WaveBox);
+            vco2WaveBox.addItem("Triangle", 2);
+            vco2WaveBox.setJustificationType(juce::Justification::centred);
+            addAndMakeVisible(vco2WaveBox);
+        vcfModeBox.addItem("LP", 1);
+        vcfModeBox.addItem("HP", 2);
+        vcfModeBox.setJustificationType(juce::Justification::centred);
+        addAndMakeVisible(vcfModeBox);
+    
     add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(vcaEg); add(volume);
     add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
     add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
@@ -61,8 +66,10 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
             apvts, "hardSync", hardSyncBox);
         vco1WaveBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
             apvts, "vco1Wave", vco1WaveBox);
-        vco2WaveBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-            apvts, "vco2Wave", vco2WaveBox);
+    vco2WaveBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, "vco2Wave", vco2WaveBox);
+    vcfModeBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, "vcfMode", vcfModeBox);
     vco1FreqAtt    = std::make_unique<SliderAttachment>(apvts, "vco1Freq",    vco1Frequency);
     vco1EgAmtAtt   = std::make_unique<SliderAttachment>(apvts, "vco1EgAmt",   vco1EgAmount);
     fmAmountAtt    = std::make_unique<SliderAttachment>(apvts, "fmAmount",    fmAmount);
@@ -277,13 +284,6 @@ void DFAFEditor::paint(juce::Graphics& g)
     for (int i = 0; i < 11; ++i)
         g.drawText(bot[i], offX + i * kS, 167, kS, 10, juce::Justification::centred);
 
-    // VCF HP/LP switch label
-    g.drawText("VCF", offX + 6*kS - kS/2, 8, kS/2, 10, juce::Justification::centred);
-
-    // Switches row 1: VCO1 WAVE, VCF HP/LP
-    drawSwitch(g, (float)(offX + 6*kS - kS/2), 20.0f, (float)(kS/2), 118.0f, "",
-               juce::StringArray({"HP", "LP"}));
-
     // Switches row 2: HARD SYNC, VCO2 WAVE, VCA EG FAST/SLOW
     drawSwitch(g, (float)(offX + 1*kS), 178.0f, (float)kS, 100.0f, "",
                juce::StringArray({"ON", "OFF"}));
@@ -338,19 +338,8 @@ void DFAFEditor::paint(juce::Graphics& g)
                     g.drawEllipse(lx - 5, ly - 5, 10, 10, 1.0f);
         }
 
-    // Buttons
-    drawButton(g, (float)(wood+45), 355.0f, 12.0f, "TRIGGER");
-    drawButton(g, (float)(wood+45), 418.0f, 18.0f, "RUN/STOP", true);
-    drawButton(g, (float)(wood+85), 418.0f, 12.0f, "ADVANCE");
-
-    // RUN/STOP LED indicator
-    g.setColour(juce::Colour(0xff333333));
-    g.fillEllipse((float)(wood+30), 392.0f, 8.0f, 8.0f);
-    g.setColour(juce::Colour(0xff555555));
-    g.drawEllipse((float)(wood+30), 392.0f, 8.0f, 8.0f, 1.0f);
-    g.setColour(labelBlack);
-    g.setFont(juce::FontOptions(6.5f));
-    g.drawText("RUN/STOP", wood+20, 402, 50, 8, juce::Justification::centred);
+    // RUN/STOP knapp
+        drawButton(g, (float)(wood+45), 418.0f, 18.0f, "RUN/STOP", true);
 
     // Branding
     g.setFont(juce::FontOptions(22.0f).withStyle("Bold"));
@@ -384,8 +373,9 @@ void DFAFEditor::resized()
 
     seqPitchModBox.setBounds(offX + 1*kS + (kS-60)/2, 50, 60, 22);
     hardSyncBox.setBounds(offX + 1*kS + (kS-60)/2, 210, 60, 22);
-        vco1WaveBox.setBounds(offX + 4*kS + (kS-60)/2, 50, 60, 22);
-        vco2WaveBox.setBounds(offX + 4*kS + (kS-60)/2, 210, 60, 22);
+    vco1WaveBox.setBounds(offX + 4*kS + (kS-60)/2, 50, 60, 22);
+    vco2WaveBox.setBounds(offX + 4*kS + (kS-60)/2, 210, 60, 22);
+    vcfModeBox.setBounds(offX + 6*kS - kS/2 + (kS/2-60)/2, 50, 60, 22);
 
     int r1slots[]  = { 0, 2, 3, 5, 6, 7, 8, 9, 10 };
         juce::Slider* row1[] = {

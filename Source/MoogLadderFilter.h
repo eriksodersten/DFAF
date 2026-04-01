@@ -3,11 +3,8 @@
 #include <JuceHeader.h>
 
 /*
- * Huovilainen New Moog (HNM) model as per CMJ jun 2006
- * Original: Richard van Hoesel, v1.03
- * v1.6 (Infrasonic Audio LLC): 2x linear oversampling
- * Ported and adapted for DFAF by Erik Sodersten 2025
- * License: MIT
+ * Huovilainen New Moog (HNM) – LP mode
+ * Chamberlin SVF – HP mode
  */
 class MoogLadderFilter
 {
@@ -16,14 +13,15 @@ public:
 
     void prepare(double sampleRate)
     {
-        sr         = (float)sampleRate;
-        alpha_     = 1.0f;
-        K_         = 1.0f;
-        Qadjust_   = 1.0f;
-        pbg_       = 0.5f;
-        oldinput_  = 0.0f;
+        sr = (float)sampleRate;
+        alpha_    = 1.0f;
+        K_        = 1.0f;
+        Qadjust_  = 1.0f;
+        pbg_      = 0.5f;
+        oldinput_ = 0.0f;
         for (int i = 0; i < 4; ++i)
             z0_[i] = z1_[i] = 0.0f;
+        svfLow_ = svfBand_ = 0.0f;
         setCutoff(1000.0f);
         setResonance(0.0f);
     }
@@ -33,6 +31,7 @@ public:
         for (int i = 0; i < 4; ++i)
             z0_[i] = z1_[i] = 0.0f;
         oldinput_ = 0.0f;
+        svfLow_ = svfBand_ = 0.0f;
     }
 
     void setCutoff(float hz)
@@ -43,7 +42,6 @@ public:
 
     void setResonance(float res)
     {
-        // 0–1 maps to K 0–4, self-oscillation starts ~3.8
         K_ = juce::jlimit(0.0f, 1.0f, res) * 4.0f;
     }
 
@@ -51,6 +49,9 @@ public:
 
     float process(float input)
     {
+        if (highpass_)
+            return processHP(input);
+
         float total = 0.0f;
         float interp = 0.0f;
         for (int os = 0; os < kOversampling; ++os)
@@ -66,15 +67,24 @@ public:
             interp += kOversamplingRecip;
         }
         oldinput_ = input;
-
         if (!std::isfinite(total)) { reset(); return 0.0f; }
-
-        return highpass_ ? (input - total) : total;
+        return total;
     }
 
 private:
-    static constexpr int   kOversampling       = 2;
-    static constexpr float kOversamplingRecip  = 1.0f / kOversampling;
+    static constexpr int   kOversampling      = 2;
+    static constexpr float kOversamplingRecip = 1.0f / kOversampling;
+
+    float processHP(float input)
+    {
+        float q = 1.0f - K_ * 0.24f;
+        q = juce::jlimit(0.02f, 1.0f, q);
+        float hp = input - svfLow_ - q * svfBand_;
+        svfBand_ += svfF_ * hp;
+        svfLow_  += svfF_ * svfBand_;
+        if (!std::isfinite(svfBand_)) { svfLow_ = svfBand_ = 0.0f; return 0.0f; }
+        return hp;
+    }
 
     float lpf(float s, int i)
     {
@@ -87,17 +97,20 @@ private:
 
     void computeCoeffs(float freq)
     {
+        svfF_ = 2.0f * std::sin(juce::MathConstants<float>::pi * juce::jmin(freq, sr * 0.33f) / sr);
+        svfF_ = juce::jlimit(0.0f, 0.8f, svfF_);
+
         float wc  = freq * (2.0f * juce::MathConstants<float>::pi
                     / ((float)kOversampling * sr));
         float wc2 = wc * wc;
-        alpha_    =  0.9892f * wc
-                   - 0.4324f * wc2
-                   + 0.1381f * wc * wc2
-                   - 0.0202f * wc2 * wc2;
-        Qadjust_  =  1.006f
-                   + 0.0536f * wc
-                   - 0.095f  * wc2
-                   - 0.05f   * wc2 * wc2;
+        alpha_   =  0.9892f * wc
+                  - 0.4324f * wc2
+                  + 0.1381f * wc * wc2
+                  - 0.0202f * wc2 * wc2;
+        Qadjust_ =  1.006f
+                  + 0.0536f * wc
+                  - 0.095f  * wc2
+                  - 0.05f   * wc2 * wc2;
     }
 
     static inline float fastTanh(float x)
@@ -114,6 +127,9 @@ private:
     float Qadjust_  = 1.0f;
     float pbg_      = 0.5f;
     float oldinput_ = 0.0f;
+    float svfF_     = 0.1f;
+    float svfLow_   = 0.0f;
+    float svfBand_  = 0.0f;
     bool  highpass_ = false;
 
     float z0_[4] = {};

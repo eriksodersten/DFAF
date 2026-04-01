@@ -32,12 +32,13 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
         void setStateInformation(const void* data, int sizeInBytes) override;
 
-        juce::AudioProcessorValueTreeState apvts;
-    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    juce::AudioProcessorValueTreeState apvts;
+        static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+        int getCurrentStep() const { return sequencer.getCurrentStep(); }
 
         void handleMidiClock(int numSamples);
 
-private:
     DFAFSequencer   sequencer;
     double currentSampleRate = 44100.0;
         juce::Random    noiseRandom;

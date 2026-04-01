@@ -7,7 +7,8 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
     setSize(1200, 480);
-    setLookAndFeel(&laf);
+        setLookAndFeel(&laf);
+        startTimerHz(30);
 
     auto add = [this](juce::Slider& s, bool small = false) {
         setupKnob(s, small);
@@ -80,11 +81,28 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     volumeAtt      = std::make_unique<SliderAttachment>(apvts, "volume",      volume);
     clockMultBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
                 apvts, "clockMult", clockMultBox);
+
+        for (int i = 0; i < 8; ++i)
+        {
+            stepPitchAtt[i] = std::make_unique<SliderAttachment>(apvts, "stepPitch" + juce::String(i), stepPitch[i]);
+            stepVelAtt[i]   = std::make_unique<SliderAttachment>(apvts, "stepVel"   + juce::String(i), stepVelocity[i]);
+        }
 }
 
 DFAFEditor::~DFAFEditor()
 {
+    stopTimer();
     setLookAndFeel(nullptr);
+}
+
+void DFAFEditor::timerCallback()
+{
+    int step = processor.getCurrentStep();
+    if (step != currentLedStep)
+    {
+        currentLedStep = step;
+        repaint();
+    }
 }
 
 void DFAFEditor::setupKnob(juce::Slider& s, bool small)
@@ -284,14 +302,41 @@ void DFAFEditor::paint(juce::Graphics& g)
     // LEDs – midpoint between pitch row (328–368) and velocity row (432–462)
     // pitch bottom = 368, velocity top = 432, midpoint = 400
     for (int i = 0; i < 8; ++i)
-    {
-        float lx = (float)(seqX + i * stepW + stepW / 2);
-        float ly = 400.0f;
-        g.setColour(juce::Colour(0xff333333));
-        g.fillEllipse(lx - 5, ly - 5, 10, 10);
-        g.setColour(juce::Colour(0xff555555));
-        g.drawEllipse(lx - 5, ly - 5, 10, 10, 1.0f);
-    }
+        {
+            float lx = (float)(seqX + i * stepW + stepW / 2);
+            float ly = 400.0f;
+            bool active = (i == currentLedStep);
+
+                    // Yttre glöd
+                    if (active)
+                    {
+                        g.setColour(juce::Colour(0x22ff2200));
+                        g.fillEllipse(lx - 10, ly - 10, 20, 20);
+                        g.setColour(juce::Colour(0x44ff2200));
+                        g.fillEllipse(lx - 8, ly - 8, 16, 16);
+                    }
+
+                    // LED-kropp
+                    juce::ColourGradient ledGrad(
+                        active ? juce::Colour(0xffff4422) : juce::Colour(0xff553322),
+                        lx - 3, ly - 3,
+                        active ? juce::Colour(0xffaa1100) : juce::Colour(0xff221111),
+                        lx + 3, ly + 3,
+                        true);
+                    g.setGradientFill(ledGrad);
+                    g.fillEllipse(lx - 5, ly - 5, 10, 10);
+
+                    // Spegelreflex
+                    if (active)
+                    {
+                        g.setColour(juce::Colour(0x88ffffff));
+                        g.fillEllipse(lx - 2.5f, ly - 3.5f, 3.0f, 2.0f);
+                    }
+
+                    // Kant
+                    g.setColour(active ? juce::Colour(0xff882200) : juce::Colour(0xff222222));
+                    g.drawEllipse(lx - 5, ly - 5, 10, 10, 1.0f);
+        }
 
     // Buttons
     drawButton(g, (float)(wood+45), 355.0f, 12.0f, "TRIGGER");

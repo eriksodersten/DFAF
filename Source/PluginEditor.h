@@ -75,7 +75,8 @@ public:
 };
 
 //==============================================================================
-class DFAFEditor : public juce::AudioProcessorEditor
+class DFAFEditor : public juce::AudioProcessorEditor,
+                   private juce::Timer
 {
 public:
     DFAFEditor(DFAFProcessor&);
@@ -102,7 +103,10 @@ private:
         juce::Slider stepPitch[8];
         juce::Slider stepVelocity[8];
 
-    void setupKnob(juce::Slider& slider, bool small = false);
+    int currentLedStep = -1;
+
+        void timerCallback() override;
+        void setupKnob(juce::Slider& slider, bool small = false);
     void drawSwitch(juce::Graphics& g, float x, float y, float w, float h,
                     const juce::String& label, const juce::StringArray& options) const;
     void drawButton(juce::Graphics& g, float x, float y, float r,
@@ -121,6 +125,7 @@ private:
     std::unique_ptr<SliderAttachment> vcfDecayAtt, vcfEgAmtAtt, noiseVcfModAtt;
     std::unique_ptr<SliderAttachment> vcaDecayAtt, vcaEgAtt, volumeAtt;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> clockMultBoxAtt;
+        std::unique_ptr<SliderAttachment> stepPitchAtt[8], stepVelAtt[8];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFEditor)
 };

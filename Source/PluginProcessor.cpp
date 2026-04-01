@@ -24,7 +24,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterFloat>("volume",      "Volume",        0.0f,  1.0f,    0.8f));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("clockMult", "Clock Multiplier",
                 juce::StringArray({ "1/8", "1/5", "1/4", "1/3", "1/2", "1x", "2x", "3x", "4x", "5x" }), 5));
-    params.push_back(std::make_unique<juce::AudioParameterChoice>("seqPitchMod", "SEQ Pitch Mod",
+    for (int i = 0; i < 8; ++i)
+        {
+            params.push_back(std::make_unique<juce::AudioParameterFloat>(
+                "stepPitch"    + juce::String(i), "Step Pitch "    + juce::String(i+1), 24.0f, 72.0f, 36.0f + (i % 2) * 12.0f));
+            params.push_back(std::make_unique<juce::AudioParameterFloat>(
+                "stepVel"      + juce::String(i), "Step Velocity " + juce::String(i+1), 0.0f,  1.0f,  0.8f));
+        }
+        params.push_back(std::make_unique<juce::AudioParameterChoice>("seqPitchMod", "SEQ Pitch Mod",
             juce::StringArray({ "VCO 1&2", "OFF", "VCO 2" }), 0));
     params.push_back(std::make_unique<juce::AudioParameterBool>("hardSync", "Hard Sync", false));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("vco1Wave", "VCO 1 Wave",
@@ -96,7 +103,14 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         float vco2LevelVal  = apvts.getRawParameterValue("vco2Level")->load();
         float vcaEgVal      = apvts.getRawParameterValue("vcaEg")->load();
 
-    filter.setResonance(resVal);
+    for (int i = 0; i < 8; ++i)
+        {
+            float pitch = apvts.getRawParameterValue("stepPitch" + juce::String(i))->load();
+            float vel   = apvts.getRawParameterValue("stepVel"   + juce::String(i))->load();
+            sequencer.setStep(i, pitch, vel);
+        }
+
+        filter.setResonance(resVal);
     voice.setDecayTime(vcoDecayVal);
     voice.setVcaDecayTime(vcaDecayVal);
     voice.setVcfDecayTime(vcfDecayVal);

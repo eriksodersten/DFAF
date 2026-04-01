@@ -13,6 +13,7 @@ public:
         vcoEnvelope.prepare(sampleRate);
         vcaEnvelope.prepare(sampleRate);
         vcfEnvelope.prepare(sampleRate);
+        smoothedVcoEnv.reset(sampleRate, 0.001);
     }
 
     void setDecayTime(float seconds)      { vcoEnvelope.setDecayTime(seconds); }
@@ -63,7 +64,7 @@ public:
         vel = velocity;
         if (vco1Wave == 1) phaseDir1 = 1.0f;
         if (vco2Wave == 1) phaseDir2 = 1.0f;
-        float startVca = (vco1Wave == 1 || vco2Wave == 1) ? std::sqrt(lastVcaEnv) : 1.0f;
+        smoothedVcoEnv.setCurrentAndTargetValue(smoothedVcoEnv.getCurrentValue());
         vcoEnvelope.trigger();
         vcaEnvelope.trigger();
         vcfEnvelope.trigger();
@@ -74,7 +75,9 @@ public:
         if (!vcaEnvelope.isActive())
             return 0.0f;
 
-        float vcoEnv = vcoEnvelope.process();
+        float rawVcoEnv = vcoEnvelope.process();
+        smoothedVcoEnv.setTargetValue(rawVcoEnv);
+        float vcoEnv = smoothedVcoEnv.getNextValue();
         float vcaEnv = vcaEnvelope.process();
         lastVcfEnv   = vcfEnvelope.process();
 
@@ -166,4 +169,5 @@ private:
     DecayEnvelope vcaEnvelope;
     DecayEnvelope vcfEnvelope;
     juce::Random  random;
+    juce::SmoothedValue<float> smoothedVcoEnv;
 };

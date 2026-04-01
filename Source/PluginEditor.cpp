@@ -25,7 +25,7 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         hardSyncBox.addItem("OFF", 2);
         hardSyncBox.setJustificationType(juce::Justification::centred);
         addAndMakeVisible(hardSyncBox);
-    add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(volume);
+    add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(vcaEg); add(volume);
     add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
     add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
     add(tempo);
@@ -219,17 +219,17 @@ void DFAFEditor::paint(juce::Graphics& g)
 
     // Row 1 labels
     const char* top[] = {
-        "VCO DECAY","SEQ PITCH MOD","VCO 1 EG AMT","VCO 1 FREQ",
-        "VCO 1 WAVE","VCO 1 LEVEL","NOISE/EXT LVL","CUTOFF","RESONANCE","VCA EG","VOLUME"
-    };
+            "VCO DECAY","SEQ PITCH MOD","VCO 1 EG AMT","VCO 1 FREQ",
+            "VCO 1 WAVE","VCO 1 LEVEL","NOISE/EXT LVL","CUTOFF","RESONANCE","VCA EG AMT","VOLUME"
+        };
     for (int i = 0; i < 11; ++i)
         g.drawText(top[i], offX + i * kS, 8, kS, 10, juce::Justification::centred);
 
     // Row 2 labels
     const char* bot[] = {
-        "1-2 FM AMT","HARD SYNC","VCO 2 EG AMT","VCO 2 FREQ",
-        "VCO 2 WAVE","VCO 2 LEVEL","VCF DECAY","VCF EG AMT","NOISE/VCF MOD","VCA EG","VCA DECAY"
-    };
+            "1-2 FM AMT","HARD SYNC","VCO 2 EG AMT","VCO 2 FREQ",
+            "VCO 2 WAVE","VCO 2 LEVEL","VCF DECAY","VCF EG AMT","NOISE/VCF MOD","","VCA DECAY"
+        };
     for (int i = 0; i < 11; ++i)
         g.drawText(bot[i], offX + i * kS, 167, kS, 10, juce::Justification::centred);
 
@@ -247,8 +247,6 @@ void DFAFEditor::paint(juce::Graphics& g)
                juce::StringArray({"ON", "OFF"}));
     drawSwitch(g, (float)(offX + 4*kS), 178.0f, (float)kS, 100.0f, "",
                juce::StringArray({"Л", "^"}));
-    drawSwitch(g, (float)(offX + 9*kS), 178.0f, (float)kS, 100.0f, "",
-               juce::StringArray({"FAST", "SLOW"}));
 
     // Sequencer labels
     g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
@@ -320,13 +318,13 @@ void DFAFEditor::resized()
     seqPitchModBox.setBounds(offX + 1*kS + (kS-60)/2, 50, 60, 22);
         hardSyncBox.setBounds(offX + 1*kS + (kS-60)/2, 210, 60, 22);
 
-        int r1slots[]  = { 0, 2, 3, 5, 6, 7, 8, 10 };
+    int r1slots[]  = { 0, 2, 3, 5, 6, 7, 8, 9, 10 };
         juce::Slider* row1[] = {
             &vcoDecay, &vco1EgAmount, &vco1Frequency,
-            &vco1Level, &noiseLevel, &cutoff, &resonance, &volume
+            &vco1Level, &noiseLevel, &cutoff, &resonance, &vcaEg, &volume
         };
-        int r1sizes[] = { kSz,kSz,kSz, sSz,sSz, kSz,kSz,kSz };
-        for (int i = 0; i < 8; ++i)
+        int r1sizes[] = { kSz,kSz,kSz, sSz,sSz, kSz,kSz,kSz,kSz };
+        for (int i = 0; i < 9; ++i)
             row1[i]->setBounds(offX + r1slots[i]*kS + (kS-r1sizes[i])/2, 22, r1sizes[i], r1sizes[i]);
 
     // Row 2: positions 0, 2,3, 5, 6,7,8, 10

@@ -71,8 +71,9 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     float vcfEgAmt      = apvts.getRawParameterValue("vcfEgAmt")->load();
         float noiseVcfMod   = apvts.getRawParameterValue("noiseVcfMod")->load();
     float noiseLevelVal = apvts.getRawParameterValue("noiseLevel")->load();
-        float vco1LevelVal  = apvts.getRawParameterValue("vco1Level")->load();
+    float vco1LevelVal  = apvts.getRawParameterValue("vco1Level")->load();
         float vco2LevelVal  = apvts.getRawParameterValue("vco2Level")->load();
+        float vcaEgVal      = apvts.getRawParameterValue("vcaEg")->load();
 
     sequencer.setTempo(tempo);
     filter.setResonance(resVal);
@@ -88,8 +89,9 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     voice.setVco2EgAmount(vco2EgAmt);
     voice.setVcfEgAmount(vcfEgAmt);
     voice.setNoiseLevel(noiseLevelVal);
-        voice.setVco1Level(vco1LevelVal);
+    voice.setVco1Level(vco1LevelVal);
         voice.setVco2Level(vco2LevelVal);
+        voice.setVcaEgAmount(vcaEgVal);
 
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);

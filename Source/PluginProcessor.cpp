@@ -23,6 +23,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaEg",       "VCA EG",        0.0f,  1.0f,    0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("volume",      "Volume",        0.0f,  1.0f,    0.8f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("tempo",       "Tempo",         40.0f, 240.0f,  120.0f));
+        params.push_back(std::make_unique<juce::AudioParameterChoice>("seqPitchMod", "SEQ Pitch Mod",
+            juce::StringArray({ "VCO 1&2", "OFF", "VCO 2" }), 0));
 
     return { params.begin(), params.end() };
 }
@@ -60,7 +62,10 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     float vcaDecayVal = apvts.getRawParameterValue("vcaDecay")->load();
     float vcfDecayVal = apvts.getRawParameterValue("vcfDecay")->load();
     float fmVal       = apvts.getRawParameterValue("fmAmount")->load();
-    float vco1EgAmt   = apvts.getRawParameterValue("vco1EgAmt")->load();
+    float vco1Freq       = apvts.getRawParameterValue("vco1Freq")->load();
+        float vco2Freq       = apvts.getRawParameterValue("vco2Freq")->load();
+        int   seqPitchRouting = (int)apvts.getRawParameterValue("seqPitchMod")->load();
+        float vco1EgAmt      = apvts.getRawParameterValue("vco1EgAmt")->load();
     float vco2EgAmt   = apvts.getRawParameterValue("vco2EgAmt")->load();
     float vcfEgAmt      = apvts.getRawParameterValue("vcfEgAmt")->load();
         float noiseVcfMod   = apvts.getRawParameterValue("noiseVcfMod")->load();
@@ -74,7 +79,10 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     voice.setVcaDecayTime(vcaDecayVal);
     voice.setVcfDecayTime(vcfDecayVal);
     voice.setFmAmount(fmVal);
-    voice.setVco1EgAmount(vco1EgAmt);
+    voice.setVco1BaseFreq(vco1Freq);
+        voice.setVco2BaseFreq(vco2Freq);
+        voice.setSeqPitchRouting(seqPitchRouting);
+        voice.setVco1EgAmount(vco1EgAmt);
     voice.setVco2EgAmount(vco2EgAmt);
     voice.setVcfEgAmount(vcfEgAmt);
     voice.setNoiseLevel(noiseLevelVal);

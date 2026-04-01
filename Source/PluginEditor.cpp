@@ -14,7 +14,12 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         addAndMakeVisible(s);
     };
 
-    add(vcoDecay); add(seqPitchMod); add(vco1EgAmount); add(vco1Frequency);
+    add(vcoDecay); add(vco1EgAmount); add(vco1Frequency);
+        seqPitchModBox.addItem("VCO 1&2", 1);
+        seqPitchModBox.addItem("OFF",     2);
+        seqPitchModBox.addItem("VCO 2",   3);
+        seqPitchModBox.setJustificationType(juce::Justification::centred);
+        addAndMakeVisible(seqPitchModBox);
     add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(volume);
     add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
     add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
@@ -22,7 +27,9 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     for (int i = 0; i < 8; ++i) { add(stepPitch[i], true); add(stepVelocity[i], true); }
 
     auto& apvts = p.apvts;
-    vcoDecayAtt    = std::make_unique<SliderAttachment>(apvts, "vcoDecay",    vcoDecay);
+    vcoDecayAtt       = std::make_unique<SliderAttachment>(apvts, "vcoDecay", vcoDecay);
+        seqPitchModBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+            apvts, "seqPitchMod", seqPitchModBox);
     vco1FreqAtt    = std::make_unique<SliderAttachment>(apvts, "vco1Freq",    vco1Frequency);
     vco1EgAmtAtt   = std::make_unique<SliderAttachment>(apvts, "vco1EgAmt",   vco1EgAmount);
     fmAmountAtt    = std::make_unique<SliderAttachment>(apvts, "fmAmount",    fmAmount);
@@ -303,15 +310,16 @@ void DFAFEditor::resized()
     const int kSz   = 54;
     const int sSz   = 30;
 
-    // Row 1: positions 0,1,2,3, 5,6, 7,8,9,10 (4=switch, skip vcaEg)
-    int r1slots[]  = { 0, 1, 2, 3, 5, 6, 7, 8, 10 };
-    juce::Slider* row1[] = {
-        &vcoDecay, &seqPitchMod, &vco1EgAmount, &vco1Frequency,
-        &vco1Level, &noiseLevel, &cutoff, &resonance, &volume
-    };
-    int r1sizes[] = { kSz,kSz,kSz,kSz, sSz,sSz, kSz,kSz,kSz };
-    for (int i = 0; i < 9; ++i)
-        row1[i]->setBounds(offX + r1slots[i]*kS + (kS-r1sizes[i])/2, 22, r1sizes[i], r1sizes[i]);
+    seqPitchModBox.setBounds(offX + 1*kS + (kS-60)/2, 50, 60, 22);
+
+        int r1slots[]  = { 0, 2, 3, 5, 6, 7, 8, 10 };
+        juce::Slider* row1[] = {
+            &vcoDecay, &vco1EgAmount, &vco1Frequency,
+            &vco1Level, &noiseLevel, &cutoff, &resonance, &volume
+        };
+        int r1sizes[] = { kSz,kSz,kSz, sSz,sSz, kSz,kSz,kSz };
+        for (int i = 0; i < 8; ++i)
+            row1[i]->setBounds(offX + r1slots[i]*kS + (kS-r1sizes[i])/2, 22, r1sizes[i], r1sizes[i]);
 
     // Row 2: positions 0, 2,3, 5, 6,7,8, 10
     int r2slots[]  = { 0, 2, 3, 5, 6, 7, 8, 10 };

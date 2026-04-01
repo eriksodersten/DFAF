@@ -11,6 +11,8 @@ juce_add_plugin(DFAF
     PLUGIN_CODE Dfaf
     FORMATS VST3 AU Standalone
     PRODUCT_NAME "DFAF"
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
 )
 
 juce_generate_juce_header(DFAF)

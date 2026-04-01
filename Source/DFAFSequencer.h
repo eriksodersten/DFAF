@@ -46,19 +46,12 @@ public:
         return steps[index];
     }
 
-    // Call once per sample. Returns true on a new step trigger.
-    bool tick(int& outStepIndex)
-    {
-        sampleCounter++;
-        if (sampleCounter >= samplesPerStep)
+    // Advance one step externally (called from MIDI clock).
+        void triggerNextStep(int& outStepIndex)
         {
-            sampleCounter = 0;
             currentStep = (currentStep + 1) % numSteps;
             outStepIndex = currentStep;
-            return true;
         }
-        return false;
-    }
 
     int getCurrentStep() const { return currentStep; }
 

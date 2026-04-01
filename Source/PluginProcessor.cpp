@@ -22,7 +22,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaDecay",    "VCA Decay",     0.01f, 2.0f,    0.3f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaEg",       "VCA EG",        0.0f,  1.0f,    0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("volume",      "Volume",        0.0f,  1.0f,    0.8f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("tempo",       "Tempo",         40.0f, 240.0f,  120.0f));
+    params.push_back(std::make_unique<juce::AudioParameterChoice>("clockMult", "Clock Multiplier",
+                juce::StringArray({ "1/8", "1/5", "1/4", "1/3", "1/2", "1x", "2x", "3x", "4x", "5x" }), 5));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("seqPitchMod", "SEQ Pitch Mod",
             juce::StringArray({ "VCO 1&2", "OFF", "VCO 2" }), 0));
     params.push_back(std::make_unique<juce::AudioParameterBool>("hardSync", "Hard Sync", false));
@@ -46,7 +47,6 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
 {
     currentSampleRate = sampleRate;
     sequencer.prepare(sampleRate);
-    sequencer.setTempo(120.0f);
     voice.prepare(sampleRate);
     filter.prepare(sampleRate);
     filter.setCutoff(800.0f);
@@ -55,11 +55,28 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
 
 void DFAFProcessor::releaseResources() {}
 
-void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     buffer.clear();
+    juce::ignoreUnused(midiMessages);
 
-    float tempo       = apvts.getRawParameterValue("tempo")->load();
+    float bpm = 120.0f;
+        bool isPlaying = false;
+        if (auto* ph = getPlayHead())
+        {
+            juce::AudioPlayHead::CurrentPositionInfo pos;
+            if (ph->getCurrentPosition(pos))
+            {
+                bpm = (float)pos.bpm;
+                isPlaying = pos.isPlaying;
+            }
+        }
+
+        int multIndex = (int)apvts.getRawParameterValue("clockMult")->load();
+    const float multTable[] = { 8.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.5f, 1.0f/3.0f, 0.25f, 0.2f };
+        float mult = multTable[multIndex];
+        int samplesPerStep = (int)(currentSampleRate * 60.0f / (bpm * 4.0f) * mult);
+        if (samplesPerStep < 1) samplesPerStep = 1;
     float cutoffVal   = apvts.getRawParameterValue("cutoff")->load();
     float resVal      = apvts.getRawParameterValue("resonance")->load();
     float volumeVal   = apvts.getRawParameterValue("volume")->load();
@@ -79,7 +96,6 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         float vco2LevelVal  = apvts.getRawParameterValue("vco2Level")->load();
         float vcaEgVal      = apvts.getRawParameterValue("vcaEg")->load();
 
-    sequencer.setTempo(tempo);
     filter.setResonance(resVal);
     voice.setDecayTime(vcoDecayVal);
     voice.setVcaDecayTime(vcaDecayVal);
@@ -103,14 +119,19 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     auto* right = buffer.getWritePointer(1);
 
     for (int i = 0; i < buffer.getNumSamples(); ++i)
-    {
-        int stepIndex = 0;
-        if (sequencer.tick(stepIndex))
         {
-            const auto& step = sequencer.getStep(stepIndex);
-            voice.trigger(step.pitch, step.velocity, fmVal);
-        }
-        float vcfEnv = voice.getVcfEnvValue();
+            if (isPlaying)
+                    {
+                        midiClockCount++;
+                        if (midiClockCount >= samplesPerStep)
+                        {
+                            midiClockCount = 0;
+                            sequencer.triggerNextStep(pendingStepIndex);
+                            const auto& step = sequencer.getStep(pendingStepIndex);
+                            voice.trigger(step.pitch, step.velocity, fmVal);
+                        }
+                    }
+            float vcfEnv = voice.getVcfEnvValue();
                 float noiseVal = noiseRandom.nextFloat() * 2.0f - 1.0f;
                 float modulatedCutoff = cutoffVal + vcfEgAmt * vcfEnv * 7000.0f + noiseVcfMod * noiseVal * 3000.0f;
                 modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);

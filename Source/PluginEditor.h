@@ -98,9 +98,9 @@ private:
     juce::Slider vco2Level, vcfDecay, vcfEgAmount, noiseVcfMod, vcaDecay;
 
     // Sequencer
-    juce::Slider tempo;
-    juce::Slider stepPitch[8];
-    juce::Slider stepVelocity[8];
+        juce::ComboBox clockMultBox;
+        juce::Slider stepPitch[8];
+        juce::Slider stepVelocity[8];
 
     void setupKnob(juce::Slider& slider, bool small = false);
     void drawSwitch(juce::Graphics& g, float x, float y, float w, float h,
@@ -119,7 +119,8 @@ private:
     std::unique_ptr<SliderAttachment> fmAmountAtt, vco2FreqAtt, vco2EgAmtAtt;
     std::unique_ptr<SliderAttachment> noiseLevelAtt, cutoffAtt, resonanceAtt;
     std::unique_ptr<SliderAttachment> vcfDecayAtt, vcfEgAmtAtt, noiseVcfModAtt;
-    std::unique_ptr<SliderAttachment> vcaDecayAtt, vcaEgAtt, volumeAtt, tempoAtt;
+    std::unique_ptr<SliderAttachment> vcaDecayAtt, vcaEgAtt, volumeAtt;
+        std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> clockMultBoxAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFEditor)
 };

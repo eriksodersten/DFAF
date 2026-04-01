@@ -38,7 +38,18 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(vcaEg); add(volume);
     add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
     add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
-    add(tempo);
+    clockMultBox.addItem("1/8", 1);
+        clockMultBox.addItem("1/5", 2);
+        clockMultBox.addItem("1/4", 3);
+        clockMultBox.addItem("1/3", 4);
+        clockMultBox.addItem("1/2", 5);
+        clockMultBox.addItem("1x",  6);
+    clockMultBox.addItem("2x",  7);
+        clockMultBox.addItem("3x",  8);
+        clockMultBox.addItem("4x",  9);
+        clockMultBox.addItem("5x",  10);
+        clockMultBox.setJustificationType(juce::Justification::centred);
+        addAndMakeVisible(clockMultBox);
     for (int i = 0; i < 8; ++i) { add(stepPitch[i], true); add(stepVelocity[i], true); }
 
     auto& apvts = p.apvts;
@@ -67,7 +78,8 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     vcaDecayAtt    = std::make_unique<SliderAttachment>(apvts, "vcaDecay",    vcaDecay);
     vcaEgAtt       = std::make_unique<SliderAttachment>(apvts, "vcaEg",       vcaEg);
     volumeAtt      = std::make_unique<SliderAttachment>(apvts, "volume",      volume);
-    tempoAtt       = std::make_unique<SliderAttachment>(apvts, "tempo",       tempo);
+    clockMultBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+                apvts, "clockMult", clockMultBox);
 }
 
 DFAFEditor::~DFAFEditor()
@@ -350,7 +362,7 @@ void DFAFEditor::resized()
         row2[i]->setBounds(offX + r2slots[i]*kS + (kS-r2sizes[i])/2, 182, r2sizes[i], r2sizes[i]);
 
     // Sequencer
-    tempo.setBounds(wood+38, 326, kSz+10, kSz+10);
+    clockMultBox.setBounds(wood+18, 326, 90, 22);
 
     const int seqX  = wood + 140;
     const int stepW = (W - wood - jackW - seqX) / 8;

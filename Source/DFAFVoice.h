@@ -62,10 +62,8 @@ public:
         fm  = fmAmount;
         vel = velocity;
         vcoEnvelope.trigger();
-        vcaEnvelope.trigger();
-        vcfEnvelope.trigger();
-        phase1 = 0.0f;
-        phase2 = 0.0f;
+                vcaEnvelope.trigger();
+                vcfEnvelope.trigger();
     }
 
     float process()
@@ -81,15 +79,19 @@ public:
         float modFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv / 12.0f);
 
         float vco2out = (vco2Wave == 0)
-                    ? (phase2 < 0.5f ? 1.0f : -1.0f)          // square
-                    : 1.0f - 4.0f * std::abs(phase2 - 0.5f);  // triangle
+                    ? (phase2 < 0.5f ? 1.0f : -1.0f)
+                    : (phase2 < 0.25f ? 4.0f * phase2
+                       : phase2 < 0.75f ? 2.0f - 4.0f * phase2
+                       : -4.0f + 4.0f * phase2);  // bipolar triangle -1 to +1
         phase2 += modFreq2 / (float)sr;
         if (phase2 >= 1.0f) phase2 -= 1.0f;
 
         float fmOffset = fm * modFreq1 * vco2out;
         float vco1out = (vco1Wave == 0)
-                    ? (phase1 < 0.5f ? 1.0f : -1.0f)          // square
-                    : 1.0f - 4.0f * std::abs(phase1 - 0.5f);  // triangle
+                    ? (phase1 < 0.5f ? 1.0f : -1.0f)
+                    : (phase1 < 0.25f ? 4.0f * phase1
+                       : phase1 < 0.75f ? 2.0f - 4.0f * phase1
+                       : -4.0f + 4.0f * phase1);  // bipolar triangle -1 to +1
         phase1 += (modFreq1 + fmOffset) / (float)sr;
         if (phase1 >= 1.0f)
         {

@@ -33,12 +33,24 @@ public:
         void setStateInformation(const void* data, int sizeInBytes) override;
 
         juce::AudioProcessorValueTreeState apvts;
-        static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+        void handleMidiClock(int numSamples);
 
 private:
     DFAFSequencer   sequencer;
-        double currentSampleRate = 44100.0;
+    double currentSampleRate = 44100.0;
         juce::Random    noiseRandom;
+
+        // MIDI clock
+        int  midiClockCount     = 0;   // 0–23 per quarter note
+        int  midiClockSamples   = 0;   // samples since last clock pulse
+        int  samplesPerClock    = 0;   // updated on each clock pulse
+    bool midiClockRunning   = false;
+        int  clockAccum         = 0;
+        int  clocksPerStep      = 6;
+        bool pendingTrigger     = false;
+        int  pendingStepIndex   = 0;
         DFAFVoice       voice;
         MoogLadderFilter filter;
 

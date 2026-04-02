@@ -74,6 +74,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     float bpm = 120.0f;
         bool isPlaying = false;
+        double ppqPosition = 0.0;
         if (auto* ph = getPlayHead())
         {
             juce::AudioPlayHead::CurrentPositionInfo pos;
@@ -81,14 +82,14 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
             {
                 bpm = (float)pos.bpm;
                 isPlaying = pos.isPlaying;
+                ppqPosition = pos.ppqPosition;
             }
         }
 
-        int multIndex = (int)apvts.getRawParameterValue("clockMult")->load();
-    const float multTable[] = { 8.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.5f, 1.0f/3.0f, 0.25f, 0.2f };
-        float mult = multTable[multIndex];
-        int samplesPerStep = (int)(currentSampleRate * 60.0f / (bpm * 4.0f) * mult);
-        if (samplesPerStep < 1) samplesPerStep = 1;
+    int multIndex = (int)apvts.getRawParameterValue("clockMult")->load();
+            const float multTable[] = { 8.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.5f, 1.0f/3.0f, 0.25f, 0.2f };
+            float mult = multTable[multIndex];
+            float ppqPerStep = 0.25f * mult;
     float cutoffVal   = apvts.getRawParameterValue("cutoff")->load();
     float resVal      = apvts.getRawParameterValue("resonance")->load();
     float volumeVal   = apvts.getRawParameterValue("volume")->load();
@@ -139,18 +140,26 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     auto* right = buffer.getWritePointer(1);
 
     for (int i = 0; i < buffer.getNumSamples(); ++i)
-        {
-            if (isPlaying)
+            {
+                if (isPlaying)
                     {
-                        midiClockCount++;
-                        if (midiClockCount >= samplesPerStep)
+                        double samplePpq = ppqPosition + (double)i * bpm / (60.0 * currentSampleRate);
+                        int currentStep = (int)(samplePpq / ppqPerStep) % 8;
+
+                        if (currentStep != lastStep)
                         {
-                            midiClockCount = 0;
+                            lastStep = currentStep;
+                            pendingStepIndex = currentStep;
                             sequencer.triggerNextStep(pendingStepIndex);
                             const auto& step = sequencer.getStep(pendingStepIndex);
                             voice.trigger(step.pitch, step.velocity, fmVal);
                         }
                     }
+                else
+                    {
+                        lastStep = -1;
+                    }
+
             float vcfEnv = voice.getVcfEnvValue();
                 float noiseVal = noiseRandom.nextFloat() * 2.0f - 1.0f;
                 float modulatedCutoff = cutoffVal + vcfEgAmt * vcfEnv * 7000.0f + noiseVcfMod * noiseVal * 3000.0f;

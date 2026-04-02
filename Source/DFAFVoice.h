@@ -39,6 +39,71 @@ public:
 
     float getVcfEnvValue() const { return lastVcfEnv; }
 
+        struct Frame {
+            float raw     = 0.0f;
+            float ampGain = 0.0f;
+            float vcfEnv  = 0.0f;
+        };
+
+        Frame processFrame()
+        {
+            Frame f{};
+
+            if (!vcaEnvelope.isActive())
+            {
+                lastVcaEnv = 0.0f;
+                lastVcfEnv = 0.0f;
+                return f;
+            }
+
+            float rawVcoEnv = vcoEnvelope.process();
+            smoothedVcoEnv.setTargetValue(rawVcoEnv);
+            float vcoEnv     = smoothedVcoEnv.getNextValue();
+            float vcaEnv     = vcaEnvelope.process();
+            float attackGain = vcaAttack.getNextValue();
+            lastVcfEnv       = vcfEnvelope.process();
+            lastVcaEnv       = vcaEnv * attackGain;
+
+            float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
+            float inst1    = modFreq1 / (float)sr * phaseDir1;
+            phase1 += inst1;
+            bool sync1 = false;
+            if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
+            if (phase1 <  0.0f) { phase1 = -phase1;        phaseDir1 = -phaseDir1; sync1 = true; }
+
+            float vco1out;
+            if (vco1Wave == 0) {
+                vco1out = (phase1 < 0.5f ? 1.0f : -1.0f) * phaseDir1;
+            } else {
+                float p   = phase1 * 4.0f;
+                float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
+                vco1out   = std::tanh(2.2f * tri) / std::tanh(2.2f) * phaseDir1;
+            }
+
+            float vco2out;
+            if (vco2Wave == 0) {
+                vco2out = (phase2 < 0.5f ? 1.0f : -1.0f);
+            } else {
+                float p   = phase2 * 4.0f;
+                float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
+                vco2out   = std::tanh(2.2f * tri) / std::tanh(2.2f);
+            }
+
+            float modulatedFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + fm * vco1out * 2.0f);
+            float inst2          = modulatedFreq2 / (float)sr * phaseDir2;
+            phase2 += inst2;
+            if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
+            if (phase2 <  0.0f) { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
+            if (hardSync && sync1) { phase2 = 0.0f; phaseDir2 = 1.0f; }
+
+            float noise    = random.nextFloat() * 2.0f - 1.0f;
+            float toneAmp  = vcoEnv;
+            f.raw     = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
+            f.ampGain = lastVcaEnv;
+            f.vcfEnv  = lastVcfEnv;
+            return f;
+        }
+
     void trigger(float midiNote, float velocity, float fmAmount = 0.3f)
     {
         baseMidiNote = midiNote;

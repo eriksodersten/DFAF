@@ -161,12 +161,12 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                         lastStep = -1;
                     }
 
-            float vcfEnv = voice.getVcfEnvValue();
-                float noiseVal = noiseRandom.nextFloat() * 2.0f - 1.0f;
-                float modulatedCutoff = cutoffVal + vcfEgAmt * vcfEnv * 7000.0f + noiseVcfMod * noiseVal * 3000.0f;
-                modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
-                filter.setCutoff(modulatedCutoff);
-        float sample = filter.process(voice.process()) * volumeVal;
+                auto frame = voice.processFrame();
+                            float noiseVal = noiseRandom.nextFloat() * 2.0f - 1.0f;
+                            float modulatedCutoff = cutoffVal + vcfEgAmt * frame.vcfEnv * 7000.0f + noiseVcfMod * noiseVal * 3000.0f;
+                            modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
+                            filter.setCutoff(modulatedCutoff);
+                            float sample = filter.process(frame.raw * 0.5f) * frame.ampGain * volumeVal;
         left[i]  = sample;
         right[i] = sample;
     }

@@ -35,7 +35,8 @@ public:
     juce::AudioProcessorValueTreeState apvts;
         static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-        int getCurrentStep() const { return sequencer.getCurrentStep(); }
+    int getCurrentStep() const { return sequencer.getCurrentStep(); }
+            void resetSequencer() { sequencer.reset(); lastStep = -1; }
 
     DFAFSequencer   sequencer;
     double currentSampleRate = 44100.0;

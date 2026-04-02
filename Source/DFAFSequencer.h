@@ -47,6 +47,7 @@ public:
         }
 
     int getCurrentStep() const { return currentStep; }
+        void reset() { currentStep = -1; }
 
     static constexpr int numSteps = 8;
 

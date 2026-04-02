@@ -7,8 +7,17 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
     setSize(1200, 480);
-        setLookAndFeel(&laf);
-        startTimerHz(30);
+    setLookAndFeel(&laf);
+    startTimerHz(30);
+
+    resetButton.setButtonText("RESET");
+    resetButton.onClick = [this]() {
+            processor.resetSequencer();
+            currentLedStep = 0;
+            resetLedActive = true;
+            repaint();
+        };
+    addAndMakeVisible(resetButton);
 
     auto add = [this](juce::Slider& s, bool small = false) {
         setupKnob(s, small);
@@ -105,9 +114,13 @@ DFAFEditor::~DFAFEditor()
 void DFAFEditor::timerCallback()
 {
     int step = processor.getCurrentStep();
-    if (step != currentLedStep)
+    if (step >= 0)
+        resetLedActive = false;
+
+    int displayStep = resetLedActive ? 0 : step;
+    if (displayStep != currentLedStep)
     {
-        currentLedStep = step;
+        currentLedStep = displayStep;
         repaint();
     }
 }
@@ -338,9 +351,6 @@ void DFAFEditor::paint(juce::Graphics& g)
                     g.drawEllipse(lx - 5, ly - 5, 10, 10, 1.0f);
         }
 
-    // RUN/STOP knapp
-        drawButton(g, (float)(wood+45), 418.0f, 18.0f, "RUN/STOP", true);
-
     // Branding
     g.setFont(juce::FontOptions(22.0f).withStyle("Bold"));
     g.setColour(labelBlack);
@@ -398,6 +408,7 @@ void DFAFEditor::resized()
 
     // Sequencer
     clockMultBox.setBounds(wood+18, 326, 90, 22);
+    resetButton.setBounds(wood+18, 408, 90, 24);
 
     const int seqX  = wood + 140;
     const int stepW = (W - wood - jackW - seqX) / 8;

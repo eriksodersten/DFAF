@@ -104,6 +104,8 @@ private:
         juce::Slider stepVelocity[8];
 
     int currentLedStep = -1;
+        bool resetLedActive = false;
+        juce::TextButton resetButton;
 
         void timerCallback() override;
         void setupKnob(juce::Slider& slider, bool small = false);

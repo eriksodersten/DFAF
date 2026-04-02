@@ -14,6 +14,8 @@ public:
         vcaEnvelope.prepare(sampleRate);
         vcfEnvelope.prepare(sampleRate);
         smoothedVcoEnv.reset(sampleRate, 0.001);
+                vcaAttack.reset(sampleRate, 0.001);
+                vcaAttack.setCurrentAndTargetValue(1.0f);
     }
 
     void setDecayTime(float seconds)      { vcoEnvelope.setDecayTime(seconds); }
@@ -27,6 +29,7 @@ public:
     void setVco1Level(float level)        { vco1Level = level; }
     void setVco2Level(float level)        { vco2Level = level; }
     void setVcaEgAmount(float amount)     { vcaEgAmount = amount; }
+        void setVcaAttackTime(float seconds)  { vcaAttackSeconds = seconds; }
     void setVco1BaseFreq(float hz)        { vco1BaseFreq = hz; }
     void setVco2BaseFreq(float hz)        { vco2BaseFreq = hz; }
     void setSeqPitchRouting(int routing)  { seqPitchRouting = routing; }
@@ -61,13 +64,19 @@ public:
         }
 
         fm  = fmAmount;
-        vel = velocity;
-        if (vco1Wave == 1) phaseDir1 = 1.0f;
-        if (vco2Wave == 1) phaseDir2 = 1.0f;
-        smoothedVcoEnv.setCurrentAndTargetValue(smoothedVcoEnv.getCurrentValue());
-        vcoEnvelope.trigger();
-        vcaEnvelope.trigger();
-        vcfEnvelope.trigger();
+                vel = velocity;
+                if (vco1Wave == 1) phaseDir1 = 1.0f;
+                if (vco2Wave == 1) phaseDir2 = 1.0f;
+                smoothedVcoEnv.setCurrentAndTargetValue(smoothedVcoEnv.getCurrentValue());
+                vcoEnvelope.trigger();
+                vcfEnvelope.trigger();
+                if (vel > 0.0f)
+                {
+                    vcaAttack.reset((float)sr, vcaAttackSeconds);
+                    vcaAttack.setCurrentAndTargetValue(0.0f);
+                    vcaAttack.setTargetValue(1.0f);
+                    vcaEnvelope.trigger(vel);
+                }
     }
 
     float process()
@@ -126,9 +135,9 @@ public:
 
         float toneAmp = vcoEnv;
         float mix = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
-        float vcaLinear = vcaEnv * vcaEnv;
-        lastVcaEnv = vcaLinear;
-        return mix * vcaLinear * vcaEgAmount * vel;
+        float attackGain = vcaAttack.getNextValue();
+                lastVcaEnv = vcaEnv * attackGain;
+        return mix * vcaEnv * attackGain;
     }
 
     bool isActive() const { return vcaEnvelope.isActive(); }
@@ -158,6 +167,7 @@ private:
     float vco1Level       = 0.6f;
     float vco2Level       = 0.2f;
     float vcaEgAmount     = 0.5f;
+        float vcaAttackSeconds = 0.001f;
     float vco1BaseFreq    = 0.0f;
     float vco2BaseFreq    = 0.0f;
     int   seqPitchRouting = 0;
@@ -170,4 +180,5 @@ private:
     DecayEnvelope vcfEnvelope;
     juce::Random  random;
     juce::SmoothedValue<float> smoothedVcoEnv;
+        juce::SmoothedValue<float> vcaAttack;
 };

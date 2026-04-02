@@ -5,7 +5,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcoDecay",    "VCO Decay",     0.01f, 2.0f,    0.3f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcoDecay",    "VCO Decay",
+            juce::NormalisableRange<float>(0.01f, 2.0f, 0.0f, 0.3f), 0.3f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vco1Freq",    "VCO 1 Freq",    20.0f, 2000.0f, 220.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vco1EgAmt",   "VCO 1 EG Amt", -24.0f, 24.0f,   0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("fmAmount",    "FM Amount",     0.0f,  1.0f,    0.0f));
@@ -16,10 +17,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
         params.push_back(std::make_unique<juce::AudioParameterFloat>("vco2Level",   "VCO 2 Level",   0.0f,  1.0f,    0.2f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("cutoff",      "Cutoff",        20.0f, 8000.0f, 800.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("resonance",   "Resonance",     0.0f,  1.0f,    0.4f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfDecay",    "VCF Decay",     0.01f, 2.0f,    0.3f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfDecay",    "VCF Decay",
+            juce::NormalisableRange<float>(0.01f, 2.0f, 0.0f, 0.3f), 0.3f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfEgAmt",    "VCF EG Amt",    0.0f,  1.0f,    0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("noiseVcfMod", "Noise VCF Mod", 0.0f,  1.0f,    0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaDecay",    "VCA Decay",     0.01f, 2.0f,    0.3f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaDecay",    "VCA Decay",
+            juce::NormalisableRange<float>(0.01f, 2.0f, 0.0f, 0.3f), 0.3f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaEg",       "VCA EG",        0.0f,  1.0f,    0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("volume",      "Volume",        0.0f,  1.0f,    0.8f));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("clockMult", "Clock Multiplier",
@@ -130,8 +133,8 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     voice.setNoiseLevel(noiseLevelVal);
     voice.setVco1Level(vco1LevelVal);
         voice.setVco2Level(vco2LevelVal);
-        voice.setVcaEgAmount(vcaEgVal);
-
+    voice.setVcaEgAmount(vcaEgVal);
+    voice.setVcaAttackTime(0.001f + vcaEgVal * 0.099f);
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);
 

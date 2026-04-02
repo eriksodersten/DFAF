@@ -18,10 +18,10 @@ public:
         updateCoeff();
     }
 
-    void trigger()
-    {
-        value = 1.0f;
-    }
+    void trigger(float amplitude = 1.0f)
+        {
+            value = amplitude;
+        }
 
     void triggerSoft(float startValue)
     {

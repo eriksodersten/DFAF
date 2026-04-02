@@ -23,11 +23,6 @@ public:
             value = amplitude;
         }
 
-    void triggerSoft(float startValue)
-    {
-        value = startValue;
-    }
-
     float process()
     {
         value *= coeff;

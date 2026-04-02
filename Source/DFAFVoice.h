@@ -84,43 +84,43 @@ public:
         float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv / 12.0f);
         float modFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv / 12.0f);
 
-        // VCO2
-        float vco2out;
-        if (vco2Wave == 0)
-        {
-            vco2out = (phase2 < 0.5f ? 1.0f : -1.0f);
-        }
-        else
-        {
-            float p2 = phase2 * 4.0f;
-            float tri2 = (p2 < 1.0f) ? p2 : (p2 < 3.0f) ? 2.0f - p2 : p2 - 4.0f;
-            vco2out = std::tanh(2.2f * tri2) / std::tanh(2.2f);
-        }
-        float inst2 = modFreq2 / (float)sr * phaseDir2;
-        phase2 += inst2;
-        if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
-        if (phase2 < 0.0f)  { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
+        // VCO1
+                float inst1 = modFreq1 / (float)sr * phaseDir1;
+                phase1 += inst1;
+                bool sync1 = false;
+                if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
+                if (phase1 < 0.0f)  { phase1 = -phase1;        phaseDir1 = -phaseDir1; sync1 = true; }
 
-        // VCO1 – through-zero FM
-        float instFreq1 = modFreq1 + fm * modFreq1 * vco2out;
-        float inst1 = instFreq1 / (float)sr * phaseDir1;
-        phase1 += inst1;
-        bool sync1 = false;
-        if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
-        if (phase1 < 0.0f)  { phase1 = -phase1;        phaseDir1 = -phaseDir1; sync1 = true; }
-        if (hardSync && sync1) { phase2 = 0.0f; phaseDir2 = 1.0f; }
+                float vco1out;
+                if (vco1Wave == 0)
+                {
+                    vco1out = (phase1 < 0.5f ? 1.0f : -1.0f) * phaseDir1;
+                }
+                else
+                {
+                    float p1 = phase1 * 4.0f;
+                    float tri1 = (p1 < 1.0f) ? p1 : (p1 < 3.0f) ? 2.0f - p1 : p1 - 4.0f;
+                    vco1out = std::tanh(2.2f * tri1) / std::tanh(2.2f) * phaseDir1;
+                }
 
-        float vco1out;
-        if (vco1Wave == 0)
-        {
-            vco1out = (phase1 < 0.5f ? 1.0f : -1.0f) * phaseDir1;
-        }
-        else
-        {
-            float p1 = phase1 * 4.0f;
-            float tri1 = (p1 < 1.0f) ? p1 : (p1 < 3.0f) ? 2.0f - p1 : p1 - 4.0f;
-            vco1out = std::tanh(2.2f * tri1) / std::tanh(2.2f) * phaseDir1;
-        }
+                // VCO2 – FM från VCO1
+                float vco2out;
+                if (vco2Wave == 0)
+                {
+                    vco2out = (phase2 < 0.5f ? 1.0f : -1.0f);
+                }
+                else
+                {
+                    float p2 = phase2 * 4.0f;
+                    float tri2 = (p2 < 1.0f) ? p2 : (p2 < 3.0f) ? 2.0f - p2 : p2 - 4.0f;
+                    vco2out = std::tanh(2.2f * tri2) / std::tanh(2.2f);
+                }
+        float modulatedFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv / 12.0f + fm * vco1out * 2.0f);
+                float inst2 = modulatedFreq2 / (float)sr * phaseDir2;
+                phase2 += inst2;
+                if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
+                if (phase2 < 0.0f)  { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
+                if (hardSync && sync1) { phase2 = 0.0f; phaseDir2 = 1.0f; }
 
         float noise = random.nextFloat() * 2.0f - 1.0f;
 

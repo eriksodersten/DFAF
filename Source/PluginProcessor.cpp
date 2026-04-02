@@ -1,3 +1,4 @@
+#include <fstream>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
@@ -162,11 +163,46 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                     }
 
                 auto frame = voice.processFrame();
+
+                            // TRIM LOGGER – one-shot, ta bort efter mätning
+                            bool active = frame.ampGain > 0.0f;
+                            if (!measurementDone && active)
+                            {
+                                measuring = true;
+                                ampGains.push_back(frame.ampGain);
+                                double raw2 = (double)frame.raw * (double)frame.raw;
+                                double amp2 = (double)frame.ampGain * (double)frame.ampGain;
+                                sumRaw2   += raw2;
+                                sumOldIn2 += raw2 * amp2;
+                            }
+                            else if (!measurementDone && wasActive && measuring)
+                            {
+                                std::sort(ampGains.begin(), ampGains.end());
+                                float maxAmp = ampGains.back();
+                                float p95    = ampGains[(size_t)(0.95 * (ampGains.size() - 1))];
+                                double sumSq = 0.0, sum = 0.0;
+                                for (float a : ampGains) { sum += a; sumSq += (double)a * a; }
+                                double mean       = sum / ampGains.size();
+                                double rms        = std::sqrt(sumSq / ampGains.size());
+                                double trimEnergy = (sumRaw2 > 0.0) ? std::sqrt(sumOldIn2 / sumRaw2) : 0.0;
+                                {
+                                                    std::ofstream f("/tmp/dfaf_trim.txt");
+                                                    f << "max=" << maxAmp << " p95=" << p95
+                                                      << " mean=" << mean << " rms=" << rms
+                                                      << " trimEnergy=" << trimEnergy << "\n";
+                                                }
+                                ampGains.clear();
+                                sumRaw2 = sumOldIn2 = 0.0;
+                                measuring = false;
+                                measurementDone = true;
+                            }
+                            wasActive = active;
+
                             float noiseVal = noiseRandom.nextFloat() * 2.0f - 1.0f;
                             float modulatedCutoff = cutoffVal + vcfEgAmt * frame.vcfEnv * 7000.0f + noiseVcfMod * noiseVal * 3000.0f;
                             modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
                             filter.setCutoff(modulatedCutoff);
-                            float sample = filter.process(frame.raw * 0.5f) * frame.ampGain * volumeVal;
+                            float sample = filter.process(frame.raw * 0.65f) * frame.ampGain * volumeVal;
         left[i]  = sample;
         right[i] = sample;
     }

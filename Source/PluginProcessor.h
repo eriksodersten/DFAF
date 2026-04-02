@@ -48,5 +48,13 @@ public:
         DFAFVoice       voice;
         MoogLadderFilter filter;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
+    // TRIM LOGGER – ta bort efter mätning
+        bool measuring       = false;
+        bool wasActive       = false;
+        bool measurementDone = false;
+        std::vector<float> ampGains;
+        double sumRaw2   = 0.0;
+        double sumOldIn2 = 0.0;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

@@ -67,11 +67,11 @@ public:
                 vel = velocity;
                 if (vco1Wave == 1) phaseDir1 = 1.0f;
                 if (vco2Wave == 1) phaseDir2 = 1.0f;
-                smoothedVcoEnv.setCurrentAndTargetValue(smoothedVcoEnv.getCurrentValue());
-                vcoEnvelope.trigger();
-                vcfEnvelope.trigger();
-                if (vel > 0.0f)
+        smoothedVcoEnv.setCurrentAndTargetValue(smoothedVcoEnv.getCurrentValue());
+        if (vel > 0.0f)
                 {
+                    vcoEnvelope.trigger();
+                    vcfEnvelope.trigger();
                     vcaAttack.reset((float)sr, vcaAttackSeconds);
                     vcaAttack.setCurrentAndTargetValue(0.0f);
                     vcaAttack.setTargetValue(1.0f);
@@ -90,8 +90,8 @@ public:
         float vcaEnv = vcaEnvelope.process();
         lastVcfEnv   = vcfEnvelope.process();
 
-        float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv / 12.0f);
-        float modFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv / 12.0f);
+        float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
+                float modFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f);
 
         // VCO1
                 float inst1 = modFreq1 / (float)sr * phaseDir1;
@@ -124,7 +124,7 @@ public:
                     float tri2 = (p2 < 1.0f) ? p2 : (p2 < 3.0f) ? 2.0f - p2 : p2 - 4.0f;
                     vco2out = std::tanh(2.2f * tri2) / std::tanh(2.2f);
                 }
-        float modulatedFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv / 12.0f + fm * vco1out * 2.0f);
+        float modulatedFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + fm * vco1out * 2.0f);
                 float inst2 = modulatedFreq2 / (float)sr * phaseDir2;
                 phase2 += inst2;
                 if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }

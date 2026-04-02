@@ -24,16 +24,9 @@ public:
     }
 
     void prepare(double sampleRate)
-    {
-        sr = sampleRate;
-        updateSamplesPerStep();
-    }
-
-    void setTempo(float bpm)
-    {
-        tempo = bpm;
-        updateSamplesPerStep();
-    }
+        {
+            sr = sampleRate;
+        }
 
     void setStep(int index, float pitch, float velocity)
     {
@@ -57,20 +50,7 @@ public:
 
     static constexpr int numSteps = 8;
 
-private:
-    void updateSamplesPerStep()
-    {
-        // 1 step = 1 sixteenth note
-        // BPM = quarter notes per minute
-        // sixteenth note duration = 60 / (BPM * 4) seconds
-        if (sr > 0.0 && tempo > 0.0f)
-            samplesPerStep = (int)(sr * 60.0 / (tempo * 4.0));
-    }
-
     SequencerStep steps[numSteps];
-    double sr            = 44100.0;
-    float  tempo         = 120.0f;
-    int    samplesPerStep = 0;
-    int    sampleCounter  = 0;
-    int    currentStep    = -1;
+        double sr          = 44100.0;
+        int    currentStep = -1;
 };

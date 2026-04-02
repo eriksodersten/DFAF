@@ -75,16 +75,17 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     float bpm = 120.0f;
         bool isPlaying = false;
         double ppqPosition = 0.0;
-        if (auto* ph = getPlayHead())
-        {
-            juce::AudioPlayHead::CurrentPositionInfo pos;
-            if (ph->getCurrentPosition(pos))
+    if (auto* ph = getPlayHead())
             {
-                bpm = (float)pos.bpm;
-                isPlaying = pos.isPlaying;
-                ppqPosition = pos.ppqPosition;
+                if (auto pos = ph->getPosition())
+                {
+                    if (pos->getBpm().hasValue())
+                        bpm = (float)*pos->getBpm();
+                    isPlaying = pos->getIsPlaying();
+                    if (pos->getPpqPosition().hasValue())
+                        ppqPosition = *pos->getPpqPosition();
+                }
             }
-        }
 
     int multIndex = (int)apvts.getRawParameterValue("clockMult")->load();
             const float multTable[] = { 8.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.5f, 1.0f/3.0f, 0.25f, 0.2f };

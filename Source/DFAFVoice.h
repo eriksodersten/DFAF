@@ -91,7 +91,6 @@ public:
         lastVcfEnv   = vcfEnvelope.process();
 
         float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
-                float modFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f);
 
         // VCO1
                 float inst1 = modFreq1 / (float)sr * phaseDir1;

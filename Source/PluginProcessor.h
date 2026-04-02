@@ -37,8 +37,6 @@ public:
 
         int getCurrentStep() const { return sequencer.getCurrentStep(); }
 
-        void handleMidiClock(int numSamples);
-
     DFAFSequencer   sequencer;
     double currentSampleRate = 44100.0;
         juce::Random    noiseRandom;

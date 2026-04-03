@@ -19,7 +19,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterFloat>("cutoff",      "Cutoff",        20.0f, 8000.0f, 800.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("resonance",   "Resonance",     0.0f,  1.0f,    0.4f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfDecay",    "VCF Decay",
-            juce::NormalisableRange<float>(0.01f, 2.0f, 0.0f, 0.3f), 0.3f));
+                juce::NormalisableRange<float>(0.01f, 10.0f, 0.0f, 0.3f), 0.3f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfEgAmt",    "VCF EG Amt",   -1.0f,  1.0f,    0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("noiseVcfMod", "Noise VCF Mod", 0.0f,  1.0f,    0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaDecay",    "VCA Decay",

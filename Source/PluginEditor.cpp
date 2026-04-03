@@ -52,8 +52,7 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     
     add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(vcaEg); add(volume);
     add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
-    add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay); add(preTrim, true);
-        preTrim.onValueChange = [this]() { repaint(); };
+    add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
     clockMultBox.addItem("1/8", 1);
         clockMultBox.addItem("1/5", 2);
         clockMultBox.addItem("1/4", 3);
@@ -94,7 +93,6 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     vcfEgAmtAtt    = std::make_unique<SliderAttachment>(apvts, "vcfEgAmt",    vcfEgAmount);
     noiseVcfModAtt = std::make_unique<SliderAttachment>(apvts, "noiseVcfMod", noiseVcfMod);
     vcaDecayAtt    = std::make_unique<SliderAttachment>(apvts, "vcaDecay",    vcaDecay);
-        preTrimAtt     = std::make_unique<SliderAttachment>(apvts, "preTrim",     preTrim);
     vcaEgAtt       = std::make_unique<SliderAttachment>(apvts, "vcaEg",       vcaEg);
     volumeAtt      = std::make_unique<SliderAttachment>(apvts, "volume",      volume);
     clockMultBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
@@ -125,8 +123,6 @@ void DFAFEditor::timerCallback()
         currentLedStep = displayStep;
         repaint();
     }
-
-    preTrim.setTooltip(juce::String(preTrim.getValue(), 3));
 }
 
 void DFAFEditor::setupKnob(juce::Slider& s, bool small)
@@ -296,26 +292,12 @@ void DFAFEditor::paint(juce::Graphics& g)
     // Row 2 labels
     const char* bot[] = {
                 "1-2 FM AMT","HARD SYNC","VCO 2 EG AMT","VCO 2 FREQ",
-                "VCO 2 WAVE","VCO 2 LEVEL","VCF DECAY","VCF EG AMT","NOISE/VCF MOD","PRE TRIM","VCA DECAY"
+                "VCO 2 WAVE","VCO 2 LEVEL","VCF DECAY","VCF EG AMT","NOISE/VCF MOD","","VCA DECAY"
             };
     for (int i = 0; i < 11; ++i)
         g.drawText(bot[i], offX + i * kS, 167, kS, 10, juce::Justification::centred);
 
-    // Pre Trim value
-        {
-            const int W2    = getWidth();
-            const int wood2 = 18;
-            const int jackW2 = 88;
-            const int mainW2 = W2 - wood2 * 2 - jackW2;
-            const int kS2    = (mainW2 - 60) / 11;
-            const int offX2  = wood2 + 30;
-            int cx = offX2 + 9 * kS2 + kS2 / 2;
-            g.setColour(labelBlack);
-            g.setFont(juce::FontOptions(7.0f));
-            g.drawText(juce::String(preTrim.getValue(), 2), cx - 20, 242, 40, 10, juce::Justification::centred);
-        }
-
-        // Switches row 2: HARD SYNC, VCO2 WAVE, VCA EG FAST/SLOW
+    // Switches row 2: HARD SYNC, VCO2 WAVE, VCA EG FAST/SLOW
     drawSwitch(g, (float)(offX + 1*kS), 178.0f, (float)kS, 100.0f, "",
                juce::StringArray({"ON", "OFF"}));
 
@@ -415,12 +397,12 @@ void DFAFEditor::resized()
             row1[i]->setBounds(offX + r1slots[i]*kS + (kS-r1sizes[i])/2, 22, r1sizes[i], r1sizes[i]);
 
     // Row 2: positions 0, 2,3, 5, 6,7,8, 10
-    int r2slots[]  = { 0, 2, 3, 5, 6, 7, 8, 9, 10 };
+    int r2slots[]  = { 0, 2, 3, 5, 6, 7, 8, 10 };
         juce::Slider* row2[] = {
             &fmAmount, &vco2EgAmount, &vco2Frequency,
-            &vco2Level, &vcfDecay, &vcfEgAmount, &noiseVcfMod, &preTrim, &vcaDecay
+            &vco2Level, &vcfDecay, &vcfEgAmount, &noiseVcfMod, &vcaDecay
         };
-        int r2sizes[] = { kSz,kSz,kSz, sSz,kSz,kSz,kSz,sSz,kSz };
+        int r2sizes[] = { kSz,kSz,kSz, sSz,kSz,kSz,kSz,kSz };
     for (int i = 0; i < 8; ++i)
         row2[i]->setBounds(offX + r2slots[i]*kS + (kS-r2sizes[i])/2, 182, r2sizes[i], r2sizes[i]);
 

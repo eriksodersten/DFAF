@@ -25,6 +25,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaDecay",    "VCA Decay",
             juce::NormalisableRange<float>(0.01f, 2.0f, 0.0f, 0.3f), 0.3f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaEg",       "VCA EG",        0.0f,  1.0f,    0.5f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("preTrim",     "Pre Trim",      0.1f,  2.0f,    0.84f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("volume",      "Volume",        0.0f,  1.0f,    0.8f));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("clockMult", "Clock Multiplier",
                 juce::StringArray({ "1/8", "1/5", "1/4", "1/3", "1/2", "1x", "2x", "3x", "4x", "5x" }), 5));
@@ -109,7 +110,8 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     float noiseLevelVal = apvts.getRawParameterValue("noiseLevel")->load();
     float vco1LevelVal  = apvts.getRawParameterValue("vco1Level")->load();
         float vco2LevelVal  = apvts.getRawParameterValue("vco2Level")->load();
-        float vcaEgVal      = apvts.getRawParameterValue("vcaEg")->load();
+    float vcaEgVal      = apvts.getRawParameterValue("vcaEg")->load();
+        float preTrimVal    = apvts.getRawParameterValue("preTrim")->load();
 
     for (int i = 0; i < 8; ++i)
         {
@@ -202,7 +204,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                             float modulatedCutoff = cutoffVal + vcfEgAmt * frame.vcfEnv * 7000.0f + noiseVcfMod * noiseVal * 3000.0f;
                             modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
                             filter.setCutoff(modulatedCutoff);
-                            float sample = filter.process(frame.raw * 0.65f) * frame.ampGain * volumeVal;
+                float sample = filter.process(frame.raw * preTrimVal) * frame.ampGain * volumeVal;
         left[i]  = sample;
         right[i] = sample;
     }

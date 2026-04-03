@@ -64,7 +64,7 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     filter.prepare(sampleRate);
     filter.setCutoff(800.0f);
     filter.setResonance(0.4f);
-    noiseModCoeff = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 200.0f / (float)sampleRate);
+    noiseModCoeff = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 291.0f / (float)sampleRate);
 }
 
 void DFAFProcessor::releaseResources() {}
@@ -164,13 +164,13 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
                 auto frame = voice.processFrame();
 
-                float noiseVal = noiseRandom.nextFloat() * 2.0f - 1.0f;
-                smoothedNoiseMod += (noiseVal - smoothedNoiseMod) * noiseModCoeff;
+                smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
                 float vcfEnvMod = frame.vcfEnv * voice.getVelocity();
                 float vcfEgHz = (vcfEgAmt >= 0.0f)
                     ? (vcfEgAmt * vcfEnvMod * 8500.0f)
                     : (vcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));
-                float modulatedCutoff = cutoffVal + vcfEgHz + noiseVcfMod * smoothedNoiseMod * 3000.0f;
+                float noisedCutoff = cutoffVal * std::pow(2.0f, noiseVcfMod * smoothedNoiseMod * 2.0f);
+                float modulatedCutoff = noisedCutoff + vcfEgHz;
                 modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
                 filter.setCutoff(modulatedCutoff);
                 float sample = filter.process(frame.raw * preTrimVal) * frame.ampGain * volumeVal;

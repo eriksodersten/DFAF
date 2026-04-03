@@ -48,6 +48,7 @@ public:
         float raw     = 0.0f;
         float ampGain = 0.0f;
         float vcfEnv  = 0.0f;
+        float noiseRaw = 0.0f;
     };
 
     Frame processFrame()
@@ -102,8 +103,9 @@ public:
 
             float noise   = random.nextFloat() * 2.0f - 1.0f;
             float toneAmp = vcoEnv;
-            f.raw    = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
-            f.vcfEnv = lastVcfEnv;
+            f.raw      = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
+            f.vcfEnv   = lastVcfEnv;
+            f.noiseRaw = noise;
             targetAmp = vcaEnv * attackGain;
         }
         else

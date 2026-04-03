@@ -40,7 +40,6 @@ public:
 
     DFAFSequencer   sequencer;
     double currentSampleRate = 44100.0;
-        juce::Random    noiseRandom;
 
     // Sequencer clock state
             int  lastStep           = -1;

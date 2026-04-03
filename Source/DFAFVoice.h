@@ -19,6 +19,7 @@ public:
         smoothedAmp = 0.0f;
         const float dezipperSeconds = 0.001f;
         ampDezipperCoeff = 1.0f - std::exp(-1.0f / ((float)sampleRate * dezipperSeconds));
+        vcfAttackCoeff   = 1.0f - std::exp(-1.0f / ((float)sampleRate * 0.001f));
     }
 
     void setDecayTime(float seconds)      { vcoEnvelope.setDecayTime(seconds); }
@@ -61,7 +62,11 @@ public:
             float vcoEnv     = smoothedVcoEnv.getNextValue();
             float vcaEnv     = vcaEnvelope.process();
             float attackGain = vcaAttack.getNextValue();
-            lastVcfEnv       = vcfEnvelope.process();
+            float targetVcfEnv = vcfEnvelope.process();
+            if (targetVcfEnv > lastVcfEnv)
+                lastVcfEnv += (targetVcfEnv - lastVcfEnv) * vcfAttackCoeff;
+            else
+                lastVcfEnv = targetVcfEnv;
 
             float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
             float inst1    = modFreq1 / (float)sr * phaseDir1;
@@ -199,6 +204,7 @@ private:
     bool  hardSync         = false;
     float smoothedAmp      = 0.0f;
         float ampDezipperCoeff = 1.0f;
+        float vcfAttackCoeff   = 1.0f;
         float smoothedVel      = 0.0f;
 
     DecayEnvelope vcoEnvelope;

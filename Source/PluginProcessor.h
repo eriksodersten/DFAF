@@ -44,17 +44,10 @@ public:
 
     // Sequencer clock state
             int  lastStep           = -1;
-            int  pendingStepIndex   = 0;
         DFAFVoice       voice;
         MoogLadderFilter filter;
-
-    // TRIM LOGGER – ta bort efter mätning
-        bool measuring       = false;
-        bool wasActive       = false;
-        bool measurementDone = false;
-        std::vector<float> ampGains;
-        double sumRaw2   = 0.0;
-        double sumOldIn2 = 0.0;
+        float smoothedNoiseMod  = 0.0f;
+        float noiseModCoeff     = 0.028f;  // ~200 Hz LP vid 44.1 kHz
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

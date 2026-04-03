@@ -39,13 +39,6 @@ public:
         return steps[index];
     }
 
-    // Advance one step externally (called from MIDI clock).
-        void triggerNextStep(int& outStepIndex)
-        {
-            currentStep = (currentStep + 1) % numSteps;
-            outStepIndex = currentStep;
-        }
-
     int getCurrentStep() const { return currentStep; }
         void reset() { currentStep = -1; }
 

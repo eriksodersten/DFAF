@@ -125,8 +125,7 @@ private:
     std::unique_ptr<SliderAttachment> fmAmountAtt, vco2FreqAtt, vco2EgAmtAtt;
     std::unique_ptr<SliderAttachment> noiseLevelAtt, cutoffAtt, resonanceAtt;
     std::unique_ptr<SliderAttachment> vcfDecayAtt, vcfEgAmtAtt, noiseVcfModAtt;
-    std::unique_ptr<SliderAttachment> vcaDecayAtt, vcaEgAtt, volumeAtt;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> clockMultBoxAtt;
+    std::unique_ptr<SliderAttachment> vcaDecayAtt, vcaEgAtt, volumeAtt;        std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> clockMultBoxAtt;
         std::unique_ptr<SliderAttachment> stepPitchAtt[8], stepVelAtt[8];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFEditor)

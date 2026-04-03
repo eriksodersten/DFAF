@@ -20,7 +20,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterFloat>("resonance",   "Resonance",     0.0f,  1.0f,    0.4f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfDecay",    "VCF Decay",
             juce::NormalisableRange<float>(0.01f, 2.0f, 0.0f, 0.3f), 0.3f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfEgAmt",    "VCF EG Amt",    0.0f,  1.0f,    0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vcfEgAmt",    "VCF EG Amt",   -1.0f,  1.0f,    0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("noiseVcfMod", "Noise VCF Mod", 0.0f,  1.0f,    0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcaDecay",    "VCA Decay",
             juce::NormalisableRange<float>(0.01f, 2.0f, 0.0f, 0.3f), 0.3f));
@@ -106,8 +106,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         float vco1EgAmt      = apvts.getRawParameterValue("vco1EgAmt")->load();
     float vco2EgAmt   = apvts.getRawParameterValue("vco2EgAmt")->load();
     float vcfEgAmt      = apvts.getRawParameterValue("vcfEgAmt")->load();
-        float noiseVcfMod   = apvts.getRawParameterValue("noiseVcfMod")->load();
-    float noiseLevelVal = apvts.getRawParameterValue("noiseLevel")->load();
+        float noiseVcfMod   = apvts.getRawParameterValue("noiseVcfMod")->load();    float noiseLevelVal = apvts.getRawParameterValue("noiseLevel")->load();
     float vco1LevelVal  = apvts.getRawParameterValue("vco1Level")->load();
         float vco2LevelVal  = apvts.getRawParameterValue("vco2Level")->load();
     float vcaEgVal      = apvts.getRawParameterValue("vcaEg")->load();
@@ -200,10 +199,14 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                             }
                             wasActive = active;
 
-                            float noiseVal = noiseRandom.nextFloat() * 2.0f - 1.0f;
-                float modulatedCutoff = cutoffVal + vcfEgAmt * frame.vcfEnv * voice.getVelocity() * 7000.0f + noiseVcfMod * noiseVal * 3000.0f;
-                            modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
-                            filter.setCutoff(modulatedCutoff);
+                float noiseVal = noiseRandom.nextFloat() * 2.0f - 1.0f;
+                float vcfEnvMod = frame.vcfEnv * voice.getVelocity();
+                float vcfEgHz = (vcfEgAmt >= 0.0f)
+                    ? (vcfEgAmt * vcfEnvMod * 8500.0f)
+                    : (vcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));
+                float modulatedCutoff = cutoffVal + vcfEgHz + noiseVcfMod * noiseVal * 3000.0f;
+                modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
+                filter.setCutoff(modulatedCutoff);
                 float sample = filter.process(frame.raw * preTrimVal) * frame.ampGain * volumeVal;
         left[i]  = sample;
         right[i] = sample;

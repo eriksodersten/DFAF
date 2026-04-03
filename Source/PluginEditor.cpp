@@ -52,8 +52,7 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     
     add(vco1Level, true); add(noiseLevel, true); add(cutoff); add(resonance); add(vcaEg); add(volume);
     add(fmAmount); add(vco2EgAmount); add(vco2Frequency);
-    add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);
-    clockMultBox.addItem("1/8", 1);
+    add(vco2Level, true); add(vcfDecay); add(vcfEgAmount); add(noiseVcfMod); add(vcaDecay);    clockMultBox.addItem("1/8", 1);
         clockMultBox.addItem("1/5", 2);
         clockMultBox.addItem("1/4", 3);
         clockMultBox.addItem("1/3", 4);

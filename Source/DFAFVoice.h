@@ -41,6 +41,7 @@ public:
     void setVco2Wave(int wave)            { vco2Wave = wave; }
 
     float getVcfEnvValue() const { return lastVcfEnv; }
+        float getVelocity()    const { return vel; }
 
     struct Frame {
         float raw     = 0.0f;
@@ -108,8 +109,8 @@ public:
         }
 
         smoothedAmp += (targetAmp - smoothedAmp) * ampDezipperCoeff;
-        if (std::abs(smoothedAmp) < 1.0e-6f)
-            smoothedAmp = 0.0f;
+                if (std::abs(smoothedAmp) < 1.0e-6f)
+                    smoothedAmp = 0.0f;
 
         lastVcaEnv = smoothedAmp;
         f.ampGain  = smoothedAmp;
@@ -141,20 +142,20 @@ public:
         }
 
         fm  = fmAmount;
-        vel = velocity;
-        if (vco1Wave == 1) phaseDir1 = 1.0f;
-        if (vco2Wave == 1) phaseDir2 = 1.0f;
-        smoothedVcoEnv.setCurrentAndTargetValue(smoothedVcoEnv.getCurrentValue());
+                if (vco1Wave == 1) phaseDir1 = 1.0f;
+                if (vco2Wave == 1) phaseDir2 = 1.0f;
+                smoothedVcoEnv.setCurrentAndTargetValue(smoothedVcoEnv.getCurrentValue());
 
-        if (vel > 0.0f)
-        {
-            vcoEnvelope.trigger();
-            vcfEnvelope.trigger();
-            vcaAttack.reset((float)sr, vcaAttackSeconds);
-            vcaAttack.setCurrentAndTargetValue(0.0f);
-            vcaAttack.setTargetValue(1.0f);
-            vcaEnvelope.trigger(vel);
-        }
+                if (velocity > 0.0f)
+                {
+                    vel = velocity;
+                    vcoEnvelope.trigger();
+                    vcfEnvelope.trigger();
+                    vcaAttack.reset((float)sr, vcaAttackSeconds);
+                    vcaAttack.setCurrentAndTargetValue(0.0f);
+                    vcaAttack.setTargetValue(1.0f);
+                    vcaEnvelope.trigger(vel);
+                }
     }
 
     bool isActive() const { return vcaEnvelope.isActive(); }
@@ -192,7 +193,8 @@ private:
     int   vco2Wave         = 0;
     bool  hardSync         = false;
     float smoothedAmp      = 0.0f;
-    float ampDezipperCoeff = 1.0f;
+        float ampDezipperCoeff = 1.0f;
+        float smoothedVel      = 0.0f;
 
     DecayEnvelope vcoEnvelope;
     DecayEnvelope vcaEnvelope;

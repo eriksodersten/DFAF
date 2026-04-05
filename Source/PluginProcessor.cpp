@@ -246,6 +246,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                             lastStep = currentStep;
                             sequencer.setCurrentStep(currentStep);
                             const auto& step = sequencer.getStep(currentStep);
+                            currentVelocity = step.velocity;
                             voice.trigger(step.pitch, step.velocity, fmVal);
                         }
                     }
@@ -258,8 +259,9 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
                 // --- Patch engine -------------------------------------------
                 for (int p = 0; p < PP_NUM_POINTS; ++p) patchInputSums[p] = 0.0f;
-                patchSourceValues[PP_VCF_EG] = frame.vcfEnv;
-                patchSourceValues[PP_VCA_EG] = frame.ampGain;
+                patchSourceValues[PP_VCF_EG]   = frame.vcfEnv;
+                patchSourceValues[PP_VCA_EG]   = frame.ampGain;
+                patchSourceValues[PP_VELOCITY] = currentVelocity;
                 for (int c = 0; c < nCables; ++c)
                     if (cableSnap.data[c].enabled)
                         patchInputSums[cableSnap.data[c].dst] +=

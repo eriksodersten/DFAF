@@ -46,7 +46,9 @@ public:
         DFAFVoice       voice;
         MoogLadderFilter filter;
         float smoothedNoiseMod  = 0.0f;
-        float noiseModCoeff     = 0.028f;  // ~200 Hz LP vid 44.1 kHz
+        float noiseModHpState   = 0.0f;
+        float noiseModCoeff     = 0.028f;   // LP för noise->VCF textur
+        float noiseModHpCoeff   = 0.0028f;  // mycket mild HPF för att ta bort långsam drift
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

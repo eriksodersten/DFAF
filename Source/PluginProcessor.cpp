@@ -64,7 +64,10 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     filter.prepare(sampleRate);
     filter.setCutoff(800.0f);
     filter.setResonance(0.4f);
-    noiseModCoeff = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 291.0f / (float)sampleRate);
+    noiseModCoeff   = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 291.0f / (float)sampleRate);
+    noiseModHpCoeff = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 18.0f  / (float)sampleRate);
+    smoothedNoiseMod = 0.0f;
+    noiseModHpState  = 0.0f;
 }
 
 void DFAFProcessor::releaseResources() {}
@@ -165,7 +168,9 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 auto frame = voice.processFrame();
 
                 smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
-                float shapedNoiseMod = std::tanh(smoothedNoiseMod * 1.5f) / std::tanh(1.5f);
+                noiseModHpState  += (smoothedNoiseMod - noiseModHpState) * noiseModHpCoeff;
+                float bandLimitedNoiseMod = smoothedNoiseMod - noiseModHpState;
+                float shapedNoiseMod = std::tanh(bandLimitedNoiseMod * 1.5f) / std::tanh(1.5f);
                 float vcfEnvMod = frame.vcfEnv;
                 float vcfEgHz = (vcfEgAmt >= 0.0f)
                     ? (vcfEgAmt * vcfEnvMod * 8500.0f)

@@ -36,12 +36,12 @@ struct PatchPointMeta
 inline const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
 {
     { "VCF EG",  PD_Out, false },   // PP_VCF_EG  – unipolar 0..1 envelope
-    { "VCF MOD", PD_In,  false },   // PP_VCF_MOD – expects unipolar, +8 kHz/unit
+    { "VCF MOD", PD_In,  true  },   // PP_VCF_MOD – bipolar -1..1, multiplicative mod around cutoff
     { "VCA EG",   PD_Out, false },   // PP_VCA_EG   – unipolar 0..1 VCA envelope
     { "VCA CV",   PD_In,  false },   // PP_VCA_CV   – additive VCA gain CV (0..1)
     { "VELOCITY",  PD_Out, false },   // PP_VELOCITY  – step velocity, held 0..1
     { "VCO EG",   PD_Out, false },   // PP_VCO_EG   – smoothed VCO envelope 0..1
-    { "VCF DECAY",PD_In,  false },   // PP_VCF_DECAY – normalised param-domain modulation
+    { "VCF DECAY",PD_In,  true  },   // PP_VCF_DECAY – bipolar, normalised param-domain replacement
 };
 
 /** One active cable between a source and a destination. */

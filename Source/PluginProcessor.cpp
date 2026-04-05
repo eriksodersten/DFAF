@@ -203,17 +203,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         filter.setResonance(resVal);
     voice.setDecayTime(vcoDecayVal);
     voice.setVcaDecayTime(vcaDecayVal);
-    // VCF decay: modulate in normalised parameter domain, convert back to seconds
-    if (vcfDecayParam != nullptr)
-    {
-        float norm    = vcfDecayParam->convertTo0to1(vcfDecayVal);
-        norm          = juce::jlimit(0.0f, 1.0f, norm + lastVcfDecayMod);
-        voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
-    }
-    else
-    {
-        voice.setVcfDecayTime(vcfDecayVal);
-    }
+    // VCF decay applied after cable snapshot (needs hasVcfDecayCable) – see below
     voice.setFmAmount(fmVal);
     voice.setVco1BaseFreq(vco1Freq);
         voice.setVco2BaseFreq(vco2Freq);
@@ -242,6 +232,29 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         seq2 = cableSeq.load(std::memory_order_acquire);
     } while (seq1 != seq2);
     const int nCables = cableSnap.count;
+
+    // Pre-compute which destinations have active cables (used in DSP below)
+    bool hasVcfModCable   = false;
+    bool hasVcfDecayCable = false;
+    for (int c = 0; c < nCables; ++c)
+    {
+        if (!cableSnap.data[c].enabled) continue;
+        if (cableSnap.data[c].dst == PP_VCF_MOD)   hasVcfModCable   = true;
+        if (cableSnap.data[c].dst == PP_VCF_DECAY)  hasVcfDecayCable = true;
+    }
+
+    // VCF decay: cable replaces panel value in normalised domain; no cable = panel value
+    if (vcfDecayParam != nullptr)
+    {
+        float norm = hasVcfDecayCable
+            ? juce::jlimit(0.0f, 1.0f, lastVcfDecayMod)      // CV replaces panel (0..1)
+            : vcfDecayParam->convertTo0to1(vcfDecayVal);       // panel is base
+        voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
+    }
+    else
+    {
+        voice.setVcfDecayTime(vcfDecayVal);
+    }
 
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);
@@ -294,9 +307,13 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 float vcfEgHz = (shapedVcfEgAmt >= 0.0f)
                     ? (shapedVcfEgAmt * vcfEnvMod * 8500.0f)
                     : (shapedVcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));
-                float noisedCutoff = cutoffVal * std::pow(2.0f, noiseVcfMod * shapedNoiseMod * 2.0f);
+                // VCF MOD: patched signal replaces noise as mod source;
+                // noiseVcfMod knob sets depth for both paths.
+                float vcfModSignal  = hasVcfModCable
+                    ? juce::jlimit(-1.0f, 1.0f, patchInputSums[PP_VCF_MOD])
+                    : shapedNoiseMod;
+                float noisedCutoff  = cutoffVal * std::pow(2.0f, noiseVcfMod * vcfModSignal * 2.0f);
                 float modulatedCutoff = noisedCutoff + vcfEgHz;
-                modulatedCutoff += patchInputSums[PP_VCF_MOD] * 8000.0f;  // patch: VCF EG → VCF MOD
                 modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
                 filter.setCutoff(modulatedCutoff);
                 float vcaGain = juce::jlimit(0.0f, 1.0f, frame.ampGain + patchInputSums[PP_VCA_CV]);

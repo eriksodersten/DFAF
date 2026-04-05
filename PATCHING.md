@@ -66,13 +66,15 @@ effektivt värde = panel-grundvärde (när inget är kopplat)
 
 ## 4. Decay-inputs (normaliserad parameterdomän)
 
-Decay-inputs: patch-CV ersätter panel-värdet i **normaliserad parameterdomän**, inte direkt i sekunder:
+Decay-inputs följer **additivmodellen**: panelratten sätter alltid basvärdet och patch-CV läggs ovanpå, i normaliserad parameterdomän:
 
 ```text
-norm = clamp(patch-CV, 0, 1)            (när kabel är kopplad)
-norm = convertTo0to1(panel-värde)        (när inget är kopplat)
+norm = convertTo0to1(panel-värde)        (panel är alltid bas)
+norm = clamp(norm + patch-CV, 0, 1)      (CV modulerar ovanpå)
 effektiva sekunder = convertFrom0to1(norm)
 ```
+
+Skäl: DFAM-manualen beskriver decay-CV som summerad med panelratten. Normaliserad domän ger proportionell modulationsdjup oavsett rattens basvärde (tack vare skew-kurvan).
 
 Skäl: skew-kurvan (setSkewForCentre) gör att modulation i sekunder ger inkonsekvent djup över rattens range. Normaliserad domän ger proportionell känsla oavsett grundvärde.
 

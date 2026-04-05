@@ -243,12 +243,12 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         if (cableSnap.data[c].dst == PP_VCF_DECAY)  hasVcfDecayCable = true;
     }
 
-    // VCF decay: cable replaces panel value in normalised domain; no cable = panel value
+    // VCF decay: panel sets base in normalised domain, patch CV adds on top
     if (vcfDecayParam != nullptr)
     {
-        float norm = hasVcfDecayCable
-            ? juce::jlimit(0.0f, 1.0f, lastVcfDecayMod)      // CV replaces panel (0..1)
-            : vcfDecayParam->convertTo0to1(vcfDecayVal);       // panel is base
+        float norm = vcfDecayParam->convertTo0to1(vcfDecayVal);   // panel always base
+        if (hasVcfDecayCable)
+            norm = juce::jlimit(0.0f, 1.0f, norm + lastVcfDecayMod);
         voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
     }
     else

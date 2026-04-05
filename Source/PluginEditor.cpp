@@ -218,15 +218,18 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h) co
     const int col2 = x + 100;
     const int col3 = x + 168;
 
-    const int startY = y + 26;
+    const int startY = y + 34;
     const int stride = 36;
 
     g.setColour(labelBlack);
     g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
 
-    g.drawText("IN",  col1 - 18, y + 6, 36, 11, juce::Justification::centred);
-    g.drawText("IN",  col2 - 18, y + 6, 36, 11, juce::Justification::centred);
-    g.drawText("OUT", col3 - 20, y + 6, 40, 11, juce::Justification::centred);
+    g.drawText("IN",  col1 - 18, y + 5, 36, 11, juce::Justification::centred);
+    g.drawText("IN",  col2 - 18, y + 5, 36, 11, juce::Justification::centred);
+    g.drawText("OUT", col3 - 20, y + 5, 40, 11, juce::Justification::centred);
+
+    g.setColour(juce::Colour(0xffc7c3bd));
+    g.drawLine((float)(x + 4), (float)(y + 19), (float)(x + w - 4), (float)(y + 19), 1.0f);
 
     for (int r = 0; r < 6; ++r)
     {
@@ -238,15 +241,23 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h) co
         drawJack(col3, jy, ioRows[idx + 2].label);
     }
 
-    const int dividerY = startY + 6 * stride - 10;
+    // Linje efter sista IN/OUT-raden (under label-texten på rad 5)
+    const int line1Y = startY + 5 * stride + 26;
     g.setColour(juce::Colour(0xffc7c3bd));
-    g.drawLine((float)(x + 8), (float)dividerY, (float)(x + w - 8), (float)dividerY, 0.8f);
+    g.drawLine((float)(x + 4), (float)line1Y, (float)(x + w - 4), (float)line1Y, 1.0f);
 
+    // OUT-rubrik centrerad mellan linje och OUT-jacks
     g.setColour(labelBlack);
     g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
-    g.drawText("OUT", x, dividerY + 2, w, 11, juce::Justification::centred);
+    g.drawText("OUT", x, line1Y + 4, w, 11, juce::Justification::centred);
 
-    const int outY = startY + 6 * stride + 10;
+    // Linje under OUT-rubriken, ovanför jack-kroppar
+    const int line2Y = line1Y + 18;
+    g.setColour(juce::Colour(0xffc7c3bd));
+    g.drawLine((float)(x + 4), (float)line2Y, (float)(x + w - 4), (float)line2Y, 1.0f);
+
+    // OUT-jacks: centrum minst 14px under line2 (jack-topp vid outY-10 > line2Y)
+    const int outY = line2Y + 24;
     drawJack(col1, outY, outRow[0].label);
     drawJack(col2, outY, outRow[1].label);
     drawJack(col3, outY, outRow[2].label);

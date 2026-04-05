@@ -23,6 +23,15 @@ struct PatchPointMeta
 {
     const char* name;
     PatchDir    dir;
+    bool        bipolar;   // true = −1..1 | false = 0..1
+};
+
+// One definition shared across all translation units (C++17 inline)
+//                                  name        dir      bipolar
+inline const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
+{
+    { "VCF EG",  PD_Out, false },   // PP_VCF_EG  – unipolar 0..1 envelope
+    { "VCF MOD", PD_In,  false },   // PP_VCF_MOD – expects unipolar, +8 kHz/unit
 };
 
 /** One active cable between a source and a destination. */
@@ -87,13 +96,14 @@ public:
     static constexpr int kMaxCables = 16;
 
     /** Thread-safe API – call from the message thread (editor). */
-    void connectPatch   (PatchPoint src, PatchPoint dst, float amount = 1.0f);
-    void disconnectPatch(PatchPoint src, PatchPoint dst);
-    void clearPatches   ();
+    void connectPatch      (PatchPoint src, PatchPoint dst, float amount = 1.0f);
+    void disconnectPatch   (PatchPoint src, PatchPoint dst);
+    void clearPatches      ();
+    void getCableSnapshot  (std::vector<PatchCable>& out) const;
 
 private:
-    std::vector<PatchCable> patchCables;          // guarded by patchLock
-    juce::CriticalSection   patchLock;
+    std::vector<PatchCable>       patchCables;          // guarded by patchLock
+    mutable juce::CriticalSection patchLock;
     float patchSourceValues[PP_NUM_POINTS] = {};  // written each sample (audio thread)
     float patchInputSums   [PP_NUM_POINTS] = {};  // accumulated each sample (audio thread)
 

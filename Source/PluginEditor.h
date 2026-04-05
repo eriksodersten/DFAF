@@ -113,7 +113,15 @@ private:
                     const juce::String& label, const juce::StringArray& options) const;
     void drawButton(juce::Graphics& g, float x, float y, float r,
                     const juce::String& label, bool red = false) const;
-    void drawJackPanel(juce::Graphics& g, int x, int y, int w, int h) const;
+    // Patch GUI helpers
+    juce::Point<int>  getJackCentre (PatchPoint pp) const;
+    PatchPoint        jackHitTest   (juce::Point<int> pos) const;
+    void              mouseDown     (const juce::MouseEvent&) override;
+    void drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
+                       const std::vector<PatchCable>& cables,
+                       PatchPoint selectedOut) const;
+
+    PatchPoint pendingOut = PP_NUM_POINTS;   // OUT jack waiting for a destination
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     std::unique_ptr<SliderAttachment> vcoDecayAtt, vco1FreqAtt, vco1EgAmtAtt;

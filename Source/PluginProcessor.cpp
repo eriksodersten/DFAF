@@ -1,12 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-// Metadata table (source of truth for direction validation)
-static const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
-{
-    { "VCF EG",  PD_Out },   // PP_VCF_EG
-    { "VCF MOD", PD_In  },   // PP_VCF_MOD
-};
 
 juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParameterLayout()
 {
@@ -122,6 +116,12 @@ void DFAFProcessor::clearPatches()
 {
     const juce::ScopedLock sl(patchLock);
     patchCables.clear();
+}
+
+void DFAFProcessor::getCableSnapshot(std::vector<PatchCable>& out) const
+{
+    const juce::ScopedLock sl(patchLock);
+    out = patchCables;
 }
 
 // =============================================================================

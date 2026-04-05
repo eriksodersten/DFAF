@@ -110,6 +110,89 @@ DFAFEditor::~DFAFEditor()
     setLookAndFeel(nullptr);
 }
 
+// =============================================================================
+// Patch GUI helpers
+// =============================================================================
+
+juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
+{
+    // Must match drawJackPanel() constants exactly
+    const int W     = getWidth();
+    const int wood  = 18;
+    const int jackW = 200;
+    const int px    = W - wood - jackW;   // jack panel left edge
+    const int py    = 0;                  // jack panel top edge
+
+    const int col1   = px + 32;
+    const int col3   = px + 168;
+    const int startY = py + 34;
+    const int stride = 36;
+
+    // ioRows layout (6 rows × 3 cols):  col1=IN  col2=IN  col3=OUT/IN
+    // r=2, col3 → VCF EG  (PP_VCF_EG)
+    // r=4, col1 → VCF MOD (PP_VCF_MOD)
+    switch (pp)
+    {
+        case PP_VCF_EG:  return { col3, startY + 2 * stride };
+        case PP_VCF_MOD: return { col1, startY + 4 * stride };
+        default:         return { -1, -1 };
+    }
+}
+
+PatchPoint DFAFEditor::jackHitTest(juce::Point<int> pos) const
+{
+    const int hitR2 = 14 * 14;   // hit radius² (slightly larger than jack radius 10)
+    for (int p = 0; p < PP_NUM_POINTS; ++p)
+    {
+        auto pp = static_cast<PatchPoint>(p);
+        auto  c = getJackCentre(pp);
+        if (c.x < 0) continue;
+        const int dx = pos.x - c.x, dy = pos.y - c.y;
+        if (dx * dx + dy * dy <= hitR2)
+            return pp;
+    }
+    return PP_NUM_POINTS;
+}
+
+void DFAFEditor::mouseDown(const juce::MouseEvent& e)
+{
+    PatchPoint hit = jackHitTest(e.getPosition());
+
+    if (hit == PP_NUM_POINTS)                          // empty area → deselect
+    {
+        pendingOut = PP_NUM_POINTS;
+        repaint();
+        return;
+    }
+
+    if (kPatchMeta[hit].dir == PD_Out)                 // clicked an OUT jack
+    {
+        pendingOut = (pendingOut == hit) ? PP_NUM_POINTS : hit;
+        repaint();
+        return;
+    }
+
+    // Clicked an IN jack — need a pending OUT
+    if (pendingOut == PP_NUM_POINTS) return;
+
+    // Toggle: connect if not connected, disconnect if already connected
+    std::vector<PatchCable> cables;
+    processor.getCableSnapshot(cables);
+    bool alreadyConnected = false;
+    for (const auto& c : cables)
+        if (c.src == pendingOut && c.dst == hit) { alreadyConnected = true; break; }
+
+    if (alreadyConnected)
+        processor.disconnectPatch(pendingOut, hit);
+    else
+        processor.connectPatch(pendingOut, hit, 1.0f);
+
+    pendingOut = PP_NUM_POINTS;
+    repaint();
+}
+
+// =============================================================================
+
 void DFAFEditor::timerCallback()
 {
     int step = processor.getCurrentStep();
@@ -175,7 +258,9 @@ void DFAFEditor::drawButton(juce::Graphics& g, float x, float y, float r,
     g.drawText(label, (int)(x - 28), (int)(y + r + 3), 56, 9, juce::Justification::centred);
 }
 
-void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h) const
+void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
+                               const std::vector<PatchCable>& cables,
+                               PatchPoint selectedOut) const
 {
     g.setColour(juce::Colour(0xffe8e5e0));
     g.fillRect(x, y, w, h);
@@ -261,6 +346,36 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h) co
     drawJack(col1, outY, outRow[0].label);
     drawJack(col2, outY, outRow[1].label);
     drawJack(col3, outY, outRow[2].label);
+
+    // --- Patch overlay ----------------------------------------------------
+    // Active cables: draw line + green ring on destination
+    for (const auto& cable : cables)
+    {
+        if (!cable.enabled) continue;
+        auto src = getJackCentre(cable.src);
+        auto dst = getJackCentre(cable.dst);
+        if (src.x < 0 || dst.x < 0) continue;
+
+        g.setColour(juce::Colour(0xcc44aaff));   // blue cable
+        g.drawLine((float)src.x, (float)src.y,
+                   (float)dst.x, (float)dst.y, 1.5f);
+
+        // Green ring on IN jack
+        g.setColour(juce::Colour(0xff44ee66));
+        g.drawEllipse((float)(dst.x - 12), (float)(dst.y - 12), 24.0f, 24.0f, 1.5f);
+    }
+
+    // Selected OUT jack: yellow ring
+    if (selectedOut != PP_NUM_POINTS)
+    {
+        auto c = getJackCentre(selectedOut);
+        if (c.x >= 0)
+        {
+            g.setColour(juce::Colour(0xffffcc00));
+            g.drawEllipse((float)(c.x - 12), (float)(c.y - 12), 24.0f, 24.0f, 2.0f);
+        }
+    }
+    // ----------------------------------------------------------------------
 }
 
 void DFAFEditor::paint(juce::Graphics& g)
@@ -291,7 +406,9 @@ void DFAFEditor::paint(juce::Graphics& g)
     g.drawRect(wood, 0, W - wood * 2, H, 1);
 
     // Jack panel
-    drawJackPanel(g, W - wood - jackW, 0, jackW, H);
+    std::vector<PatchCable> cables;
+    processor.getCableSnapshot(cables);
+    drawJackPanel(g, W - wood - jackW, 0, jackW, H, cables, pendingOut);
 
     // Screws
     auto drawScrew = [&](float sx, float sy) {

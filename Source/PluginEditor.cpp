@@ -296,10 +296,6 @@ void DFAFEditor::paint(juce::Graphics& g)
     for (int i = 0; i < 11; ++i)
         g.drawText(bot[i], offX + i * kS, 167, kS, 10, juce::Justification::centred);
 
-    // Switches row 2: HARD SYNC, VCO2 WAVE, VCA EG FAST/SLOW
-    drawSwitch(g, (float)(offX + 1*kS), 178.0f, (float)kS, 100.0f, "",
-               juce::StringArray({"ON", "OFF"}));
-
     // Sequencer labels
     g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
     g.drawText("TEMPO",    wood+30, 314, 90, 10, juce::Justification::centred);

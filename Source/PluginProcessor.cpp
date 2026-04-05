@@ -1,6 +1,13 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+// Metadata table (source of truth for direction validation)
+static const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
+{
+    { "VCF EG",  PD_Out },   // PP_VCF_EG
+    { "VCF MOD", PD_In  },   // PP_VCF_MOD
+};
+
 juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
@@ -80,9 +87,44 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     noiseModHpCoeff = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 18.0f  / (float)sampleRate);
     smoothedNoiseMod = 0.0f;
     noiseModHpState  = 0.0f;
+    for (int p = 0; p < PP_NUM_POINTS; ++p)
+        patchSourceValues[p] = patchInputSums[p] = 0.0f;
 }
 
 void DFAFProcessor::releaseResources() {}
+
+// =============================================================================
+// Patch system API
+// =============================================================================
+
+void DFAFProcessor::connectPatch(PatchPoint src, PatchPoint dst, float amount)
+{
+    jassert(kPatchMeta[src].dir == PD_Out);
+    jassert(kPatchMeta[dst].dir == PD_In);
+    const juce::ScopedLock sl(patchLock);
+    // Update amount if cable already exists
+    for (auto& c : patchCables)
+        if (c.src == src && c.dst == dst) { c.amount = amount; c.enabled = true; return; }
+    if ((int)patchCables.size() < kMaxCables)
+        patchCables.push_back({ src, dst, amount, true });
+}
+
+void DFAFProcessor::disconnectPatch(PatchPoint src, PatchPoint dst)
+{
+    const juce::ScopedLock sl(patchLock);
+    patchCables.erase(
+        std::remove_if(patchCables.begin(), patchCables.end(),
+            [src, dst](const PatchCable& c){ return c.src == src && c.dst == dst; }),
+        patchCables.end());
+}
+
+void DFAFProcessor::clearPatches()
+{
+    const juce::ScopedLock sl(patchLock);
+    patchCables.clear();
+}
+
+// =============================================================================
 
 void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
@@ -154,6 +196,17 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         voice.setVco2Level(vco2LevelVal);
     voice.setVcaEgAmount(vcaEgVal);
     voice.setVcaAttackTime(0.001f + vcaEgVal * 0.099f);
+
+    // Snapshot active patch cables once (lock-free inside the sample loop)
+    PatchCable cableSnap[kMaxCables];
+    int        nCables = 0;
+    {
+        const juce::ScopedLock sl(patchLock);
+        nCables = (int)patchCables.size();
+        for (int c = 0; c < nCables; ++c)
+            cableSnap[c] = patchCables[c];
+    }
+
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);
 
@@ -179,6 +232,15 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
                 auto frame = voice.processFrame();
 
+                // --- Patch engine -------------------------------------------
+                for (int p = 0; p < PP_NUM_POINTS; ++p) patchInputSums[p] = 0.0f;
+                patchSourceValues[PP_VCF_EG] = frame.vcfEnv;
+                for (int c = 0; c < nCables; ++c)
+                    if (cableSnap[c].enabled)
+                        patchInputSums[cableSnap[c].dst] +=
+                            patchSourceValues[cableSnap[c].src] * cableSnap[c].amount;
+                // ------------------------------------------------------------
+
                 smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
                 noiseModHpState  += (smoothedNoiseMod - noiseModHpState) * noiseModHpCoeff;
                 float bandLimitedNoiseMod = smoothedNoiseMod - noiseModHpState;
@@ -193,6 +255,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                     : (shapedVcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));
                 float noisedCutoff = cutoffVal * std::pow(2.0f, noiseVcfMod * shapedNoiseMod * 2.0f);
                 float modulatedCutoff = noisedCutoff + vcfEgHz;
+                modulatedCutoff += patchInputSums[PP_VCF_MOD] * 8000.0f;  // patch: VCF EG → VCF MOD
                 modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
                 filter.setCutoff(modulatedCutoff);
                 float sample = filter.process(frame.raw * preTrimVal) * frame.ampGain * volumeVal;

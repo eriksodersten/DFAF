@@ -5,6 +5,37 @@
 #include "DFAFVoice.h"
 #include "MoogLadderFilter.h"
 
+// =============================================================================
+// Patch system types
+// =============================================================================
+
+/** All patch points. Plain enum so values work as array indices. */
+enum PatchPoint
+{
+    PP_VCF_EG  = 0,   // OUT – VCF envelope (0–1, velocity-scaled)
+    PP_VCF_MOD = 1,   // IN  – additional cutoff modulation
+    PP_NUM_POINTS
+};
+
+enum PatchDir { PD_Out, PD_In };
+
+struct PatchPointMeta
+{
+    const char* name;
+    PatchDir    dir;
+};
+
+/** One active cable between a source and a destination. */
+struct PatchCable
+{
+    PatchPoint src     = PP_VCF_EG;
+    PatchPoint dst     = PP_VCF_MOD;
+    float      amount  = 1.0f;   // 0–1 attenuator, 1 = full
+    bool       enabled = true;
+};
+
+// =============================================================================
+
 class DFAFProcessor : public juce::AudioProcessor
 {
 public:
@@ -49,6 +80,22 @@ public:
         float noiseModHpState   = 0.0f;
         float noiseModCoeff     = 0.028f;   // LP för noise->VCF textur
         float noiseModHpCoeff   = 0.0028f;  // mycket mild HPF för att ta bort långsam drift
+
+    // -------------------------------------------------------------------------
+    // Patch system
+    // -------------------------------------------------------------------------
+    static constexpr int kMaxCables = 16;
+
+    /** Thread-safe API – call from the message thread (editor). */
+    void connectPatch   (PatchPoint src, PatchPoint dst, float amount = 1.0f);
+    void disconnectPatch(PatchPoint src, PatchPoint dst);
+    void clearPatches   ();
+
+private:
+    std::vector<PatchCable> patchCables;          // guarded by patchLock
+    juce::CriticalSection   patchLock;
+    float patchSourceValues[PP_NUM_POINTS] = {};  // written each sample (audio thread)
+    float patchInputSums   [PP_NUM_POINTS] = {};  // accumulated each sample (audio thread)
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

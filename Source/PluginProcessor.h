@@ -106,8 +106,20 @@ public:
     void getCableSnapshot  (std::vector<PatchCable>& out) const;
 
 private:
-    std::vector<PatchCable>       patchCables;          // guarded by patchLock
-    mutable juce::CriticalSection patchLock;
+    // -------------------------------------------------------------------------
+    // Lock-free patch storage (seqlock)
+    //   cableSeq even  → store is stable, safe to read
+    //   cableSeq odd   → write in progress, reader must retry
+    //   cableWriteLock → serialises message-thread writers only (never taken by audio)
+    // -------------------------------------------------------------------------
+    struct CableStore {
+        PatchCable data[kMaxCables] {};
+        int        count = 0;
+    };
+    CableStore                    cableStore;
+    std::atomic<uint32_t>         cableSeq { 0 };
+    mutable juce::CriticalSection cableWriteLock;   // message-thread writers only
+
     float patchSourceValues[PP_NUM_POINTS] = {};  // written each sample (audio thread)
     float patchInputSums   [PP_NUM_POINTS] = {};  // accumulated each sample (audio thread)
 

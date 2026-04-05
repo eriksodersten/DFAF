@@ -88,40 +88,62 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
 void DFAFProcessor::releaseResources() {}
 
 // =============================================================================
-// Patch system API
+// Patch system API  (message thread – never called from audio thread)
 // =============================================================================
+
+// Helper: read store safely from message thread (writer lock already held or not needed
+// because writer lock serialises all writes).
+// We take writelock here so getCableSnapshot is also safe without holding it externally.
+
 
 void DFAFProcessor::connectPatch(PatchPoint src, PatchPoint dst, float amount)
 {
     jassert(kPatchMeta[src].dir == PD_Out);
     jassert(kPatchMeta[dst].dir == PD_In);
-    const juce::ScopedLock sl(patchLock);
-    // Update amount if cable already exists
-    for (auto& c : patchCables)
-        if (c.src == src && c.dst == dst) { c.amount = amount; c.enabled = true; return; }
-    if ((int)patchCables.size() < kMaxCables)
-        patchCables.push_back({ src, dst, amount, true });
+    const juce::ScopedLock sl(cableWriteLock);
+
+    CableStore next = cableStore;   // start from current state
+    for (int i = 0; i < next.count; ++i)
+        if (next.data[i].src == src && next.data[i].dst == dst)
+            { next.data[i].amount = amount; next.data[i].enabled = true; goto publish; }
+    if (next.count < kMaxCables)
+        next.data[next.count++] = { src, dst, amount, true };
+
+publish:
+    cableSeq.fetch_add(1, std::memory_order_release);   // odd: writing
+    cableStore = next;
+    cableSeq.fetch_add(1, std::memory_order_release);   // even: done
 }
 
 void DFAFProcessor::disconnectPatch(PatchPoint src, PatchPoint dst)
 {
-    const juce::ScopedLock sl(patchLock);
-    patchCables.erase(
-        std::remove_if(patchCables.begin(), patchCables.end(),
-            [src, dst](const PatchCable& c){ return c.src == src && c.dst == dst; }),
-        patchCables.end());
+    const juce::ScopedLock sl(cableWriteLock);
+    CableStore next = cableStore;
+    int w = 0;
+    for (int r = 0; r < next.count; ++r)
+        if (!(next.data[r].src == src && next.data[r].dst == dst))
+            next.data[w++] = next.data[r];
+    next.count = w;
+
+    cableSeq.fetch_add(1, std::memory_order_release);
+    cableStore = next;
+    cableSeq.fetch_add(1, std::memory_order_release);
 }
 
 void DFAFProcessor::clearPatches()
 {
-    const juce::ScopedLock sl(patchLock);
-    patchCables.clear();
+    const juce::ScopedLock sl(cableWriteLock);
+    CableStore empty{};
+    cableSeq.fetch_add(1, std::memory_order_release);
+    cableStore = empty;
+    cableSeq.fetch_add(1, std::memory_order_release);
 }
 
 void DFAFProcessor::getCableSnapshot(std::vector<PatchCable>& out) const
 {
-    const juce::ScopedLock sl(patchLock);
-    out = patchCables;
+    // Message-thread read: take write lock so we never read a partial write
+    const juce::ScopedLock sl(cableWriteLock);
+    out.assign(cableStore.data, cableStore.data + cableStore.count);
 }
 
 // =============================================================================
@@ -197,15 +219,17 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     voice.setVcaEgAmount(vcaEgVal);
     voice.setVcaAttackTime(0.001f + vcaEgVal * 0.099f);
 
-    // Snapshot active patch cables once (lock-free inside the sample loop)
-    PatchCable cableSnap[kMaxCables];
-    int        nCables = 0;
-    {
-        const juce::ScopedLock sl(patchLock);
-        nCables = (int)patchCables.size();
-        for (int c = 0; c < nCables; ++c)
-            cableSnap[c] = patchCables[c];
-    }
+    // Seqlock snapshot – audio thread never takes a lock.
+    // Retries only if a message-thread write lands exactly during the copy (extremely rare).
+    CableStore cableSnap;
+    uint32_t seq1, seq2;
+    do {
+        seq1 = cableSeq.load(std::memory_order_acquire);
+        if (seq1 & 1u) continue;          // write in progress – retry
+        cableSnap = cableStore;
+        seq2 = cableSeq.load(std::memory_order_acquire);
+    } while (seq1 != seq2);
+    const int nCables = cableSnap.count;
 
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);
@@ -237,9 +261,9 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 patchSourceValues[PP_VCF_EG] = frame.vcfEnv;
                 patchSourceValues[PP_VCA_EG] = frame.ampGain;
                 for (int c = 0; c < nCables; ++c)
-                    if (cableSnap[c].enabled)
-                        patchInputSums[cableSnap[c].dst] +=
-                            patchSourceValues[cableSnap[c].src] * cableSnap[c].amount;
+                    if (cableSnap.data[c].enabled)
+                        patchInputSums[cableSnap.data[c].dst] +=
+                            patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
                 // ------------------------------------------------------------
 
                 smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
@@ -279,9 +303,10 @@ void DFAFProcessor::getStateInformation(juce::MemoryBlock& destData)
     // Serialise patch cables as child elements
     auto* cablesXml = xml->createNewChildElement("PatchCables");
     {
-        const juce::ScopedLock sl(patchLock);
-        for (const auto& c : patchCables)
+        const juce::ScopedLock sl(cableWriteLock);
+        for (int i = 0; i < cableStore.count; ++i)
         {
+            const auto& c = cableStore.data[i];
             auto* el = cablesXml->createNewChildElement("Cable");
             el->setAttribute("src",     (int)c.src);
             el->setAttribute("dst",     (int)c.dst);
@@ -305,13 +330,10 @@ void DFAFProcessor::setStateInformation(const void* data, int sizeInBytes)
     if (xml->hasTagName(apvts.state.getType()))
         apvts.replaceState(juce::ValueTree::fromXml(*xml));
 
-    // Restore cables from the detached element
-    // (re-fetch after removeChildElement returned non-owning ptr)
-    const juce::ScopedLock sl(patchLock);
-    patchCables.clear();
-    // Re-parse original XML because we passed false to removeChildElement
+    // Restore cables – re-parse original XML (removeChildElement was non-owning)
     std::unique_ptr<juce::XmlElement> xml2(getXmlFromBinary(data, sizeInBytes));
     if (!xml2) return;
+    CableStore next{};
     if (auto* cablesXml = xml2->getChildByName("PatchCables"))
     {
         for (auto* el : cablesXml->getChildIterator())
@@ -322,15 +344,19 @@ void DFAFProcessor::setStateInformation(const void* data, int sizeInBytes)
             if (dst < 0 || dst >= PP_NUM_POINTS) continue;
             if (kPatchMeta[src].dir != PD_Out)   continue;
             if (kPatchMeta[dst].dir != PD_In)    continue;
-            if ((int)patchCables.size() >= kMaxCables) break;
-            patchCables.push_back({
+            if (next.count >= kMaxCables)        break;
+            next.data[next.count++] = {
                 static_cast<PatchPoint>(src),
                 static_cast<PatchPoint>(dst),
                 (float)el->getDoubleAttribute("amount",  1.0),
                 el->getIntAttribute("enabled", 1) != 0
-            });
+            };
         }
     }
+    const juce::ScopedLock sl(cableWriteLock);
+    cableSeq.fetch_add(1, std::memory_order_release);
+    cableStore = next;
+    cableSeq.fetch_add(1, std::memory_order_release);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

@@ -124,17 +124,22 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
     const int py    = 0;                  // jack panel top edge
 
     const int col1   = px + 32;
+    const int col2   = px + 100;
     const int col3   = px + 168;
     const int startY = py + 34;
     const int stride = 36;
 
-    // ioRows layout (6 rows × 3 cols):  col1=IN  col2=IN  col3=OUT/IN
-    // r=2, col3 → VCF EG  (PP_VCF_EG)
-    // r=4, col1 → VCF MOD (PP_VCF_MOD)
+    // ioRows layout (6 rows × 3 cols):  col1=IN  col2=IN  col3=OUT
+    // r=0 col2 → VCA CV   (PP_VCA_CV)
+    // r=1 col3 → VCA EG   (PP_VCA_EG)
+    // r=2 col3 → VCF EG   (PP_VCF_EG)
+    // r=4 col1 → VCF MOD  (PP_VCF_MOD)
     switch (pp)
     {
         case PP_VCF_EG:  return { col3, startY + 2 * stride };
         case PP_VCF_MOD: return { col1, startY + 4 * stride };
+        case PP_VCA_EG:  return { col3, startY + 1 * stride };
+        case PP_VCA_CV:  return { col2, startY + 0 * stride };
         default:         return { -1, -1 };
     }
 }

@@ -235,6 +235,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 // --- Patch engine -------------------------------------------
                 for (int p = 0; p < PP_NUM_POINTS; ++p) patchInputSums[p] = 0.0f;
                 patchSourceValues[PP_VCF_EG] = frame.vcfEnv;
+                patchSourceValues[PP_VCA_EG] = frame.ampGain;
                 for (int c = 0; c < nCables; ++c)
                     if (cableSnap[c].enabled)
                         patchInputSums[cableSnap[c].dst] +=
@@ -258,7 +259,8 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 modulatedCutoff += patchInputSums[PP_VCF_MOD] * 8000.0f;  // patch: VCF EG → VCF MOD
                 modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
                 filter.setCutoff(modulatedCutoff);
-                float sample = filter.process(frame.raw * preTrimVal) * frame.ampGain * volumeVal;
+                float vcaGain = juce::jlimit(0.0f, 1.0f, frame.ampGain + patchInputSums[PP_VCA_CV]);
+                float sample = filter.process(frame.raw * preTrimVal) * vcaGain * volumeVal;
         left[i]  = sample;
         right[i] = sample;
     }

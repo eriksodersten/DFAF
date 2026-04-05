@@ -47,6 +47,7 @@ public:
         float raw     = 0.0f;
         float ampGain = 0.0f;
         float vcfEnv  = 0.0f;
+        float vcoEnv  = 0.0f;   // smoothed VCO envelope (0..1)
         float noiseRaw = 0.0f;
     };
 
@@ -68,6 +69,7 @@ public:
             else
                 lastVcfEnv = targetVcfEnv;
 
+            f.vcoEnv = vcoEnv;
             float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
             float inst1    = modFreq1 / (float)sr * phaseDir1;
             phase1 += inst1;

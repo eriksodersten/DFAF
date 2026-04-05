@@ -16,7 +16,9 @@ enum PatchPoint
     PP_VCF_MOD = 1,   // IN  – additional cutoff modulation
     PP_VCA_EG   = 2,   // OUT – VCA envelope (0–1)
     PP_VCA_CV   = 3,   // IN  – additional VCA gain CV
-    PP_VELOCITY = 4,   // OUT – step velocity, held until next trigger (0–1)
+    PP_VELOCITY  = 4,   // OUT – step velocity, held until next trigger (0–1)
+    PP_VCO_EG    = 5,   // OUT – smoothed VCO envelope (0..1)
+    PP_VCF_DECAY = 6,   // IN  – modulates VCF decay in normalised parameter domain
     PP_NUM_POINTS
 };
 
@@ -37,7 +39,9 @@ inline const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
     { "VCF MOD", PD_In,  false },   // PP_VCF_MOD – expects unipolar, +8 kHz/unit
     { "VCA EG",   PD_Out, false },   // PP_VCA_EG   – unipolar 0..1 VCA envelope
     { "VCA CV",   PD_In,  false },   // PP_VCA_CV   – additive VCA gain CV (0..1)
-    { "VELOCITY", PD_Out, false },   // PP_VELOCITY – step velocity, held 0..1
+    { "VELOCITY",  PD_Out, false },   // PP_VELOCITY  – step velocity, held 0..1
+    { "VCO EG",   PD_Out, false },   // PP_VCO_EG   – smoothed VCO envelope 0..1
+    { "VCF DECAY",PD_In,  false },   // PP_VCF_DECAY – normalised param-domain modulation
 };
 
 /** One active cable between a source and a destination. */
@@ -91,7 +95,9 @@ public:
             int  lastStep           = -1;
         DFAFVoice       voice;
         MoogLadderFilter filter;
-        float currentVelocity   = 0.0f;   // held from last trigger, used as patch source
+        float currentVelocity    = 0.0f;   // held from last trigger, used as patch source
+        float lastVcfDecayMod   = 0.0f;   // previous block's PP_VCF_DECAY sum (block-rate CV)
+        juce::RangedAudioParameter* vcfDecayParam = nullptr;  // cached for normalised-domain mod
         float smoothedNoiseMod  = 0.0f;
         float noiseModHpState   = 0.0f;
         float noiseModCoeff     = 0.028f;   // LP för noise->VCF textur

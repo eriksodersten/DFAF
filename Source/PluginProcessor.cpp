@@ -81,8 +81,10 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     noiseModHpCoeff = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 18.0f  / (float)sampleRate);
     smoothedNoiseMod = 0.0f;
     noiseModHpState  = 0.0f;
+    lastVcfDecayMod  = 0.0f;
     for (int p = 0; p < PP_NUM_POINTS; ++p)
         patchSourceValues[p] = patchInputSums[p] = 0.0f;
+    vcfDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcfDecay"));
 }
 
 void DFAFProcessor::releaseResources() {}
@@ -201,7 +203,17 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         filter.setResonance(resVal);
     voice.setDecayTime(vcoDecayVal);
     voice.setVcaDecayTime(vcaDecayVal);
-    voice.setVcfDecayTime(vcfDecayVal);
+    // VCF decay: modulate in normalised parameter domain, convert back to seconds
+    if (vcfDecayParam != nullptr)
+    {
+        float norm    = vcfDecayParam->convertTo0to1(vcfDecayVal);
+        norm          = juce::jlimit(0.0f, 1.0f, norm + lastVcfDecayMod);
+        voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
+    }
+    else
+    {
+        voice.setVcfDecayTime(vcfDecayVal);
+    }
     voice.setFmAmount(fmVal);
     voice.setVco1BaseFreq(vco1Freq);
         voice.setVco2BaseFreq(vco2Freq);
@@ -259,13 +271,15 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
                 // --- Patch engine -------------------------------------------
                 for (int p = 0; p < PP_NUM_POINTS; ++p) patchInputSums[p] = 0.0f;
-                patchSourceValues[PP_VCF_EG]   = frame.vcfEnv;
-                patchSourceValues[PP_VCA_EG]   = frame.ampGain;
-                patchSourceValues[PP_VELOCITY] = currentVelocity;
+                patchSourceValues[PP_VCF_EG]    = frame.vcfEnv;
+                patchSourceValues[PP_VCA_EG]    = frame.ampGain;
+                patchSourceValues[PP_VELOCITY]  = currentVelocity;
+                patchSourceValues[PP_VCO_EG]    = frame.vcoEnv;
                 for (int c = 0; c < nCables; ++c)
                     if (cableSnap.data[c].enabled)
                         patchInputSums[cableSnap.data[c].dst] +=
                             patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
+                lastVcfDecayMod = patchInputSums[PP_VCF_DECAY];  // sample for next block
                 // ------------------------------------------------------------
 
                 smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;

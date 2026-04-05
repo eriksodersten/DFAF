@@ -365,14 +365,25 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
         g.drawEllipse((float)(dst.x - 12), (float)(dst.y - 12), 24.0f, 24.0f, 1.5f);
     }
 
-    // Selected OUT jack: yellow ring
+    // Selected OUT jack: yellow ring + highlight all available IN jacks in green
     if (selectedOut != PP_NUM_POINTS)
     {
+        // Yellow ring on the selected OUT
         auto c = getJackCentre(selectedOut);
         if (c.x >= 0)
         {
             g.setColour(juce::Colour(0xffffcc00));
             g.drawEllipse((float)(c.x - 12), (float)(c.y - 12), 24.0f, 24.0f, 2.0f);
+        }
+
+        // Green ring on every available IN jack
+        for (int p = 0; p < PP_NUM_POINTS; ++p)
+        {
+            if (kPatchMeta[p].dir != PD_In) continue;
+            auto in = getJackCentre(static_cast<PatchPoint>(p));
+            if (in.x < 0) continue;
+            g.setColour(juce::Colour(0xff44ee66));
+            g.drawEllipse((float)(in.x - 12), (float)(in.y - 12), 24.0f, 24.0f, 1.5f);
         }
     }
     // ----------------------------------------------------------------------

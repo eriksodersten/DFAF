@@ -39,12 +39,15 @@ public:
         return steps[index];
     }
 
-    int getCurrentStep() const { return currentStep; }
-        void reset() { currentStep = -1; }
+    int  getCurrentStep() const  { return currentStep; }
+    void setCurrentStep(int step) { currentStep = step; }
+    void reset()                  { currentStep = -1; }
 
     static constexpr int numSteps = 8;
 
     SequencerStep steps[numSteps];
-        double sr          = 44100.0;
-        int    currentStep = -1;
+
+private:
+    double sr          = 44100.0;
+    int    currentStep = -1;
 };

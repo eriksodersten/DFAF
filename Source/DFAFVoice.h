@@ -19,7 +19,7 @@ public:
         smoothedAmp = 0.0f;
         const float dezipperSeconds = 0.001f;
         ampDezipperCoeff = 1.0f - std::exp(-1.0f / ((float)sampleRate * dezipperSeconds));
-        vcfAttackCoeff   = 1.0f - std::exp(-1.0f / ((float)sampleRate * 0.001f));
+        vcfAttackCoeff   = ampDezipperCoeff;
     }
 
     void setDecayTime(float seconds)      { vcoEnvelope.setDecayTime(seconds); }
@@ -42,7 +42,6 @@ public:
     void setVco2Wave(int wave)            { vco2Wave = wave; }
 
     float getVcfEnvValue() const { return lastVcfEnv; }
-        float getVelocity()    const { return vel; }
 
     struct Frame {
         float raw     = 0.0f;
@@ -104,7 +103,7 @@ public:
             float noise   = random.nextFloat() * 2.0f - 1.0f;
             float toneAmp = vcoEnv;
             f.raw      = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
-            f.vcfEnv   = lastVcfEnv;
+            f.vcfEnv   = lastVcfEnv * vel;
             f.noiseRaw = noise;
             targetAmp = vcaEnv * attackGain;
         }
@@ -115,7 +114,6 @@ public:
             targetAmp  = 0.0f;
         }
 
-        smoothedVel += (vel - smoothedVel) * ampDezipperCoeff;
         smoothedAmp += (targetAmp - smoothedAmp) * ampDezipperCoeff;
         if (std::abs(smoothedAmp) < 1.0e-6f)
             smoothedAmp = 0.0f;
@@ -205,9 +203,8 @@ private:
     int   vco2Wave         = 0;
     bool  hardSync         = false;
     float smoothedAmp      = 0.0f;
-        float ampDezipperCoeff = 1.0f;
-        float vcfAttackCoeff   = 1.0f;
-        float smoothedVel      = 0.0f;
+    float ampDezipperCoeff = 1.0f;
+    float vcfAttackCoeff   = 1.0f;
 
     DecayEnvelope vcoEnvelope;
     DecayEnvelope vcaEnvelope;

@@ -152,7 +152,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                         if (currentStep != lastStep)
                         {
                             lastStep = currentStep;
-                            sequencer.currentStep = currentStep;
+                            sequencer.setCurrentStep(currentStep);
                             const auto& step = sequencer.getStep(currentStep);
                             voice.trigger(step.pitch, step.velocity, fmVal);
                         }
@@ -165,7 +165,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 auto frame = voice.processFrame();
 
                 smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
-                float vcfEnvMod = frame.vcfEnv * voice.getVelocity();
+                float vcfEnvMod = frame.vcfEnv;
                 float vcfEgHz = (vcfEgAmt >= 0.0f)
                     ? (vcfEgAmt * vcfEnvMod * 8500.0f)
                     : (vcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));

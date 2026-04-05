@@ -165,11 +165,12 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 auto frame = voice.processFrame();
 
                 smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
+                float shapedNoiseMod = std::tanh(smoothedNoiseMod * 1.5f) / std::tanh(1.5f);
                 float vcfEnvMod = frame.vcfEnv;
                 float vcfEgHz = (vcfEgAmt >= 0.0f)
                     ? (vcfEgAmt * vcfEnvMod * 8500.0f)
                     : (vcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));
-                float noisedCutoff = cutoffVal * std::pow(2.0f, noiseVcfMod * smoothedNoiseMod * 2.0f);
+                float noisedCutoff = cutoffVal * std::pow(2.0f, noiseVcfMod * shapedNoiseMod * 2.0f);
                 float modulatedCutoff = noisedCutoff + vcfEgHz;
                 modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
                 filter.setCutoff(modulatedCutoff);

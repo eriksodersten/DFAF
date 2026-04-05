@@ -4,9 +4,9 @@ Kortfattade regler för hur patchpanelen ska bete sig i DFAF, baserat på DFAM-m
 
 ## Grundregel
 
-**Panelkontroller sätter grundvärdet. Patch-CV modulerar ovanpå.**
+**När en kabel kopplas in ersätter patch-CV panelkontrollens värde.**
 
-Patchning ska normalt **inte ersätta** en panelkontroll helt.
+Panelkontrollen fungerar som grundvärde endast när inget är kopplat.
 
 ---
 
@@ -41,9 +41,9 @@ Inte abstrakta parameteralias.
 
 För de flesta patch-inputs gäller:
 
-> **patch-CV summeras med panelens grundvärde**
+> **patch-CV ersätter panelens grundvärde**
 
-Detta följer DFAM för bland annat:
+Detta följer DFAM-logiken där en inkopplad kabel tar över kontrollen från panelen. Gäller bland annat:
 
 - `VCA DECAY`
 - `VCF DECAY`
@@ -58,18 +58,19 @@ Detta följer DFAM för bland annat:
 Alltså normalt:
 
 ```text
-effektivt värde = panel-grundvärde + patch-CV
+effektivt värde = patch-CV        (när kabel är kopplad)
+effektivt värde = panel-grundvärde (när inget är kopplat)
 ```
 
 ---
 
 ## 4. Decay-inputs (normaliserad parameterdomän)
 
-Decay-inputs moduleras i **normaliserad parameterdomän**, inte direkt i sekunder:
+Decay-inputs: patch-CV ersätter panel-värdet i **normaliserad parameterdomän**, inte direkt i sekunder:
 
 ```text
-norm = convertTo0to1(panel-värde)
-norm = clamp(norm + patch-CV, 0, 1)
+norm = clamp(patch-CV, 0, 1)            (när kabel är kopplad)
+norm = convertTo0to1(panel-värde)        (när inget är kopplat)
 effektiva sekunder = convertFrom0to1(norm)
 ```
 

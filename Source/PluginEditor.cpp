@@ -6,7 +6,7 @@ static const juce::Colour labelBlack = juce::Colour(0xff111111);
 DFAFEditor::DFAFEditor(DFAFProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(1200, 480);
+    setSize(1400, 480);
     setLookAndFeel(&laf);
     startTimerHz(30);
 
@@ -179,48 +179,77 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h) co
 {
     g.setColour(juce::Colour(0xffe8e5e0));
     g.fillRect(x, y, w, h);
+
     g.setColour(juce::Colour(0xffbbbbbb));
     g.drawRect(x, y, w, h, 1);
 
-    auto drawJack = [&](int jx, int jy, const juce::String& lbl) {
+    auto drawJack = [&](int jx, int jy, const juce::String& lbl)
+    {
         g.setColour(juce::Colour(0xff333333));
-        g.fillEllipse((float)(jx-8), (float)(jy-8), 16.0f, 16.0f);
+        g.fillEllipse((float)(jx - 10), (float)(jy - 10), 20.0f, 20.0f);
+
         g.setColour(juce::Colour(0xff666666));
-        g.drawEllipse((float)(jx-8), (float)(jy-8), 16.0f, 16.0f, 1.5f);
+        g.drawEllipse((float)(jx - 10), (float)(jy - 10), 20.0f, 20.0f, 1.5f);
+
         g.setColour(juce::Colour(0xff999999));
-        g.fillEllipse((float)(jx-3), (float)(jy-3), 6.0f, 6.0f);
+        g.fillEllipse((float)(jx - 4), (float)(jy - 4), 8.0f, 8.0f);
+
         g.setColour(labelBlack);
-        g.setFont(juce::FontOptions(6.0f));
-        g.drawText(lbl, jx-20, jy+10, 40, 8, juce::Justification::centred);
+        g.setFont(juce::FontOptions(7.0f));
+        g.drawText(lbl, jx - 24, jy + 12, 48, 9, juce::Justification::centred);
     };
 
     struct JackDef { const char* label; };
-    JackDef jacks[] = {
-        {"TRIGGER"},{"VCA CV"},{"VCA"},
-        {"VELOCITY"},{"VCA DEC"},{"VCA EG"},
-        {"EXT AUD"},{"VCF DEC"},{"VCF EG"},
-        {"NOISE LV"},{"VCO DEC"},{"VCO EG"},
-        {"VCF MOD"},{"VCO1 CV"},{"VCO 1"},
-        {"1-2 FAMT"},{"VCO2 CV"},{"VCO 2"},
-        {"TEMPO"},{"RUN/STP"},{"ADV/CLK"},
-        {"TRIGGER"},{"VELOCTY"},{"PITCH"}
+
+    JackDef ioRows[] = {
+        {"TRIGGER"},  {"VCA CV"},  {"VCA"},
+        {"VELOCITY"}, {"VCA DEC"}, {"VCA EG"},
+        {"EXT AUD"},  {"VCF DEC"}, {"VCF EG"},
+        {"NOISE LV"}, {"VCO DEC"}, {"VCO EG"},
+        {"VCF MOD"},  {"VCO1 CV"}, {"VCO 1"},
+        {"1-2 FAMT"}, {"VCO2 CV"}, {"VCO 2"}
     };
 
-    int col1 = x + 16, col2 = x + 44, col3 = x + 72;
-    int startY = y + 20;
-    int stride = 28;
+    JackDef outRow[] = {
+        {"TRIGGER"}, {"VELOCTY"}, {"PITCH"}
+    };
+
+    const int col1 = x + 32;
+    const int col2 = x + 100;
+    const int col3 = x + 168;
+
+    const int startY = y + 26;
+    const int stride = 36;
 
     g.setColour(labelBlack);
-    g.setFont(juce::FontOptions(6.5f).withStyle("Bold"));
-    g.drawText("IN/OUT", x, y + 4, w, 10, juce::Justification::centred);
+    g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
 
-    for (int r = 0; r < 8; ++r)
+    g.drawText("IN",  col1 - 18, y + 6, 36, 11, juce::Justification::centred);
+    g.drawText("IN",  col2 - 18, y + 6, 36, 11, juce::Justification::centred);
+    g.drawText("OUT", col3 - 20, y + 6, 40, 11, juce::Justification::centred);
+
+    for (int r = 0; r < 6; ++r)
     {
-        int idx = r * 3;
-        if (idx < 24) drawJack(col1, startY + r * stride, jacks[idx].label);
-        if (idx+1 < 24) drawJack(col2, startY + r * stride, jacks[idx+1].label);
-        if (idx+2 < 24) drawJack(col3, startY + r * stride, jacks[idx+2].label);
+        const int idx = r * 3;
+        const int jy = startY + r * stride;
+
+        drawJack(col1, jy, ioRows[idx].label);
+        drawJack(col2, jy, ioRows[idx + 1].label);
+        drawJack(col3, jy, ioRows[idx + 2].label);
     }
+
+    const int dividerY = startY + 6 * stride - 10;
+    g.setColour(juce::Colour(0xffc7c3bd));
+    g.drawLine((float)(x + 8), (float)dividerY, (float)(x + w - 8), (float)dividerY, 0.8f);
+
+    g.setColour(labelBlack);
+    g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
+    g.drawText("OUT", x, dividerY + 2, w, 11, juce::Justification::centred);
+
+    const int outY = startY + 6 * stride + 10;
+    drawJack(col1, outY, outRow[0].label);
+    drawJack(col2, outY, outRow[1].label);
+    drawJack(col3, outY, outRow[2].label);
 }
 
 void DFAFEditor::paint(juce::Graphics& g)
@@ -228,7 +257,7 @@ void DFAFEditor::paint(juce::Graphics& g)
     const int W     = getWidth();
     const int H     = getHeight();
     const int wood  = 18;
-    const int jackW = 88;
+    const int jackW = 200;
 
     // Wood panels
     juce::ColourGradient woodGrad(
@@ -369,7 +398,7 @@ void DFAFEditor::resized()
 {
     const int W     = getWidth();
     const int wood  = 18;
-    const int jackW = 88;
+    const int jackW = 200;
     const int mainW = W - wood * 2 - jackW;
     const int kS    = (mainW - 60) / 11;
     const int offX  = wood + 30;

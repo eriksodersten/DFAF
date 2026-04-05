@@ -254,16 +254,26 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                             currentVelocity = step.velocity;
                             patchSourceValues[PP_VELOCITY] = currentVelocity;
 
-                            // VCF decay computed at trigger time with current patch sources
+                            // VCF decay computed at trigger time.
+                            // Envelope sources use their post-trigger peak rather than the
+                            // pre-trigger tail: VCO/VCF EG jump to vel, VCA EG starts at 0.
                             if (vcfDecayParam != nullptr)
                             {
                                 float norm = vcfDecayParam->convertTo0to1(vcfDecayVal);
                                 if (hasVcfDecayCable)
                                 {
+                                    // Build a snapshot of source values at trigger peak
+                                    float trigSrc[PP_NUM_POINTS];
+                                    for (int p = 0; p < PP_NUM_POINTS; ++p)
+                                        trigSrc[p] = patchSourceValues[p];
+                                    trigSrc[PP_VCO_EG]  = currentVelocity;  // peak = vel
+                                    trigSrc[PP_VCF_EG]  = currentVelocity;  // peak = vel
+                                    trigSrc[PP_VCA_EG]  = 0.0f;             // attack starts at 0
+
                                     float cv = 0.0f;
                                     for (int c = 0; c < nCables; ++c)
                                         if (cableSnap.data[c].enabled && cableSnap.data[c].dst == PP_VCF_DECAY)
-                                            cv += patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
+                                            cv += trigSrc[cableSnap.data[c].src] * cableSnap.data[c].amount;
                                     norm = juce::jlimit(0.0f, 1.0f, norm + cv);
                                 }
                                 voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));

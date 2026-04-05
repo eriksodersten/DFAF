@@ -271,35 +271,41 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
     g.setColour(juce::Colour(0xffbbbbbb));
     g.drawRect(x, y, w, h, 1);
 
-    auto drawJack = [&](int jx, int jy, const juce::String& lbl)
+    // active=true: implemented patch point (full contrast)
+    // active=false: placeholder jack (dimmed, not interactive)
+    auto drawJack = [&](int jx, int jy, const juce::String& lbl, bool active)
     {
-        g.setColour(juce::Colour(0xff333333));
+        g.setColour(active ? juce::Colour(0xff333333) : juce::Colour(0xff1e1e1e));
         g.fillEllipse((float)(jx - 10), (float)(jy - 10), 20.0f, 20.0f);
 
-        g.setColour(juce::Colour(0xff666666));
+        g.setColour(active ? juce::Colour(0xff666666) : juce::Colour(0xff333333));
         g.drawEllipse((float)(jx - 10), (float)(jy - 10), 20.0f, 20.0f, 1.5f);
 
-        g.setColour(juce::Colour(0xff999999));
-        g.fillEllipse((float)(jx - 4), (float)(jy - 4), 8.0f, 8.0f);
+        if (active)
+        {
+            g.setColour(juce::Colour(0xff999999));
+            g.fillEllipse((float)(jx - 4), (float)(jy - 4), 8.0f, 8.0f);
+        }
 
-        g.setColour(labelBlack);
+        g.setColour(active ? labelBlack : juce::Colour(0xff888888));
         g.setFont(juce::FontOptions(7.0f));
         g.drawText(lbl, jx - 24, jy + 12, 48, 9, juce::Justification::centred);
     };
 
-    struct JackDef { const char* label; };
+    // ioRows: true = implemented PP_* point, false = placeholder
+    struct JackDef { const char* label; bool active; };
 
     JackDef ioRows[] = {
-        {"TRIGGER"},  {"VCA CV"},  {"VCA"},
-        {"VELOCITY"}, {"VCA DEC"}, {"VCA EG"},
-        {"EXT AUD"},  {"VCF DEC"}, {"VCF EG"},
-        {"NOISE LV"}, {"VCO DEC"}, {"VCO EG"},
-        {"VCF MOD"},  {"VCO1 CV"}, {"VCO 1"},
-        {"1-2 FAMT"}, {"VCO2 CV"}, {"VCO 2"}
+        {"TRIGGER",  false}, {"VCA CV",  true },  {"VCA",     false},
+        {"VELOCITY", true },  {"VCA DEC", false},  {"VCA EG",  true },
+        {"EXT AUD",  false}, {"VCF DEC", true },  {"VCF EG",  true },
+        {"NOISE LV", false}, {"VCO DEC", false},  {"VCO EG",  true },
+        {"VCF MOD",  true },  {"VCO1 CV", false},  {"VCO 1",   false},
+        {"1-2 FAMT", false}, {"VCO2 CV", false},  {"VCO 2",   false}
     };
 
     JackDef outRow[] = {
-        {"TRIGGER"}, {"VELOCTY"}, {"PITCH"}
+        {"TRIGGER", false}, {"VELOCTY", false}, {"PITCH", false}
     };
 
     const int col1 = x + 32;
@@ -324,9 +330,9 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
         const int idx = r * 3;
         const int jy = startY + r * stride;
 
-        drawJack(col1, jy, ioRows[idx].label);
-        drawJack(col2, jy, ioRows[idx + 1].label);
-        drawJack(col3, jy, ioRows[idx + 2].label);
+        drawJack(col1, jy, ioRows[idx].label,     ioRows[idx].active);
+        drawJack(col2, jy, ioRows[idx + 1].label, ioRows[idx + 1].active);
+        drawJack(col3, jy, ioRows[idx + 2].label, ioRows[idx + 2].active);
     }
 
     const int line1Y = startY + 5 * stride + 26;
@@ -342,9 +348,9 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
     g.drawLine((float)(x + 4), (float)line2Y, (float)(x + w - 4), (float)line2Y, 1.0f);
 
     const int outY = line2Y + 24;
-    drawJack(col1, outY, outRow[0].label);
-    drawJack(col2, outY, outRow[1].label);
-    drawJack(col3, outY, outRow[2].label);
+    drawJack(col1, outY, outRow[0].label, outRow[0].active);
+    drawJack(col2, outY, outRow[1].label, outRow[1].active);
+    drawJack(col3, outY, outRow[2].label, outRow[2].active);
 
     // --- Patch overlay ----------------------------------------------------
     for (const auto& cable : cables)

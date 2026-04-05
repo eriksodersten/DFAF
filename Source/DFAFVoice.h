@@ -105,7 +105,7 @@ public:
             float toneAmp = vcoEnv;
             f.raw      = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
             f.vcfEnv   = lastVcfEnv * vel;
-            f.vcoEnv   = vcoEnv;
+            f.vcoEnv   = vcoEnv * vel;
             f.noiseRaw = noise;
             targetAmp = vcaEnv * attackGain;
         }

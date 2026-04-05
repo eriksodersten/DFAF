@@ -80,7 +80,6 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     noiseModHpCoeff = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 18.0f  / (float)sampleRate);
     smoothedNoiseMod = 0.0f;
     noiseModHpState  = 0.0f;
-    lastVcfDecayMod  = 0.0f;
     for (int p = 0; p < PP_NUM_POINTS; ++p)
         patchSourceValues[p] = patchInputSums[p] = 0.0f;
     vcfDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcfDecay"));
@@ -237,19 +236,6 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         if (cableSnap.data[c].dst == PP_VCF_DECAY)  hasVcfDecayCable = true;
     }
 
-    // VCF decay: panel sets base in normalised domain, patch CV adds on top
-    if (vcfDecayParam != nullptr)
-    {
-        float norm = vcfDecayParam->convertTo0to1(vcfDecayVal);   // panel always base
-        if (hasVcfDecayCable)
-            norm = juce::jlimit(0.0f, 1.0f, norm + lastVcfDecayMod);
-        voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
-    }
-    else
-    {
-        voice.setVcfDecayTime(vcfDecayVal);
-    }
-
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);
 
@@ -266,6 +252,27 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                             sequencer.setCurrentStep(currentStep);
                             const auto& step = sequencer.getStep(currentStep);
                             currentVelocity = step.velocity;
+                            patchSourceValues[PP_VELOCITY] = currentVelocity;
+
+                            // VCF decay computed at trigger time with current patch sources
+                            if (vcfDecayParam != nullptr)
+                            {
+                                float norm = vcfDecayParam->convertTo0to1(vcfDecayVal);
+                                if (hasVcfDecayCable)
+                                {
+                                    float cv = 0.0f;
+                                    for (int c = 0; c < nCables; ++c)
+                                        if (cableSnap.data[c].enabled && cableSnap.data[c].dst == PP_VCF_DECAY)
+                                            cv += patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
+                                    norm = juce::jlimit(0.0f, 1.0f, norm + cv);
+                                }
+                                voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
+                            }
+                            else
+                            {
+                                voice.setVcfDecayTime(vcfDecayVal);
+                            }
+
                             voice.trigger(step.pitch, step.velocity, fmVal);
                         }
                     }
@@ -286,7 +293,6 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                     if (cableSnap.data[c].enabled)
                         patchInputSums[cableSnap.data[c].dst] +=
                             patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
-                lastVcfDecayMod = patchInputSums[PP_VCF_DECAY];  // sample for next block
                 // ------------------------------------------------------------
 
                 smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
@@ -352,7 +358,7 @@ void DFAFProcessor::setStateInformation(const void* data, int sizeInBytes)
 
     // Restore APVTS params (strip PatchCables child first so APVTS doesn't see it)
     if (auto* cablesXml = xml->getChildByName("PatchCables"))
-        xml->removeChildElement(cablesXml, false);   // detach, don't delete yet
+        xml->removeChildElement(cablesXml, true);   // remove and delete; cables re-read from xml2
 
     if (xml->hasTagName(apvts.state.getType()))
         apvts.replaceState(juce::ValueTree::fromXml(*xml));

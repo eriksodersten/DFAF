@@ -5,6 +5,56 @@
 #include "DFAFVoice.h"
 #include "MoogLadderFilter.h"
 
+// =============================================================================
+// Patch system types
+// =============================================================================
+
+/** All patch points. Plain enum so values work as array indices. */
+enum PatchPoint
+{
+    PP_VCF_EG  = 0,   // OUT – VCF envelope (0–1, velocity-scaled)
+    PP_VCF_MOD = 1,   // IN  – additional cutoff modulation
+    PP_VCA_EG   = 2,   // OUT – VCA envelope (0–1)
+    PP_VCA_CV   = 3,   // IN  – additional VCA gain CV
+    PP_VELOCITY  = 4,   // OUT – step velocity, held until next trigger (0–1)
+    PP_VCO_EG    = 5,   // OUT – smoothed VCO envelope (0..1)
+    PP_VCF_DECAY = 6,   // IN  – modulates VCF decay in normalised parameter domain
+    PP_NUM_POINTS
+};
+
+enum PatchDir { PD_Out, PD_In };
+
+struct PatchPointMeta
+{
+    const char* name;
+    PatchDir    dir;
+    bool        bipolar;   // true = −1..1 | false = 0..1
+};
+
+// One definition shared across all translation units (C++17 inline)
+//                                  name        dir      bipolar
+inline const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
+{
+    { "VCF EG",  PD_Out, false },   // PP_VCF_EG  – unipolar 0..1 envelope
+    { "VCF MOD", PD_In,  true  },   // PP_VCF_MOD – bipolar -1..1, multiplicative mod around cutoff
+    { "VCA EG",   PD_Out, false },   // PP_VCA_EG   – unipolar 0..1 VCA envelope
+    { "VCA CV",   PD_In,  false },   // PP_VCA_CV   – additive VCA gain CV (0..1)
+    { "VELOCITY",  PD_Out, false },   // PP_VELOCITY  – step velocity, held 0..1
+    { "VCO EG",   PD_Out, false },   // PP_VCO_EG   – smoothed VCO envelope 0..1
+    { "VCF DECAY",PD_In,  true  },   // PP_VCF_DECAY – bipolar, normalised param-domain modulation
+};
+
+/** One active cable between a source and a destination. */
+struct PatchCable
+{
+    PatchPoint src     = PP_VCF_EG;
+    PatchPoint dst     = PP_VCF_MOD;
+    float      amount  = 1.0f;   // 0–1 attenuator, 1 = full
+    bool       enabled = true;
+};
+
+// =============================================================================
+
 class DFAFProcessor : public juce::AudioProcessor
 {
 public:
@@ -45,10 +95,42 @@ public:
             int  lastStep           = -1;
         DFAFVoice       voice;
         MoogLadderFilter filter;
+        float currentVelocity    = 0.0f;   // held from last trigger, used as patch source
+        float lastVcfDecayMod   = 0.0f;   // previous block's PP_VCF_DECAY sum (block-rate CV)
+        juce::RangedAudioParameter* vcfDecayParam = nullptr;  // cached for normalised-domain mod
         float smoothedNoiseMod  = 0.0f;
         float noiseModHpState   = 0.0f;
         float noiseModCoeff     = 0.028f;   // LP för noise->VCF textur
         float noiseModHpCoeff   = 0.0028f;  // mycket mild HPF för att ta bort långsam drift
+
+    // -------------------------------------------------------------------------
+    // Patch system
+    // -------------------------------------------------------------------------
+    static constexpr int kMaxCables = 16;
+
+    /** Thread-safe API – call from the message thread (editor). */
+    void connectPatch      (PatchPoint src, PatchPoint dst, float amount = 1.0f);
+    void disconnectPatch   (PatchPoint src, PatchPoint dst);
+    void clearPatches      ();
+    void getCableSnapshot  (std::vector<PatchCable>& out) const;
+
+private:
+    // -------------------------------------------------------------------------
+    // Lock-free patch storage (seqlock)
+    //   cableSeq even  → store is stable, safe to read
+    //   cableSeq odd   → write in progress, reader must retry
+    //   cableWriteLock → serialises message-thread writers only (never taken by audio)
+    // -------------------------------------------------------------------------
+    struct CableStore {
+        PatchCable data[kMaxCables] {};
+        int        count = 0;
+    };
+    CableStore                    cableStore;
+    std::atomic<uint32_t>         cableSeq { 0 };
+    mutable juce::CriticalSection cableWriteLock;   // message-thread writers only
+
+    float patchSourceValues[PP_NUM_POINTS] = {};  // written each sample (audio thread)
+    float patchInputSums   [PP_NUM_POINTS] = {};  // accumulated each sample (audio thread)
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

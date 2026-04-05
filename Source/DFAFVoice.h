@@ -47,6 +47,7 @@ public:
         float raw     = 0.0f;
         float ampGain = 0.0f;
         float vcfEnv  = 0.0f;
+        float vcoEnv  = 0.0f;   // smoothed VCO envelope (0..1)
         float noiseRaw = 0.0f;
     };
 
@@ -104,6 +105,7 @@ public:
             float toneAmp = vcoEnv;
             f.raw      = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
             f.vcfEnv   = lastVcfEnv * vel;
+            f.vcoEnv   = vcoEnv;
             f.noiseRaw = noise;
             targetAmp = vcaEnv * attackGain;
         }

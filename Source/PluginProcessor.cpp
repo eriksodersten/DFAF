@@ -183,10 +183,14 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 noiseModHpState  += (smoothedNoiseMod - noiseModHpState) * noiseModHpCoeff;
                 float bandLimitedNoiseMod = smoothedNoiseMod - noiseModHpState;
                 float shapedNoiseMod = std::tanh(bandLimitedNoiseMod * 1.5f) / std::tanh(1.5f);
+                float shapedVcfEgAmt = (vcfEgAmt >= 0.0f)
+                    ? (vcfEgAmt * vcfEgAmt)
+                    : -(vcfEgAmt * vcfEgAmt);
+
                 float vcfEnvMod = frame.vcfEnv;
-                float vcfEgHz = (vcfEgAmt >= 0.0f)
-                    ? (vcfEgAmt * vcfEnvMod * 8500.0f)
-                    : (vcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));
+                float vcfEgHz = (shapedVcfEgAmt >= 0.0f)
+                    ? (shapedVcfEgAmt * vcfEnvMod * 8500.0f)
+                    : (shapedVcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));
                 float noisedCutoff = cutoffVal * std::pow(2.0f, noiseVcfMod * shapedNoiseMod * 2.0f);
                 float modulatedCutoff = noisedCutoff + vcfEgHz;
                 modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);

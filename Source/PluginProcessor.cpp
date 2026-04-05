@@ -275,14 +275,62 @@ void DFAFProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
+
+    // Serialise patch cables as child elements
+    auto* cablesXml = xml->createNewChildElement("PatchCables");
+    {
+        const juce::ScopedLock sl(patchLock);
+        for (const auto& c : patchCables)
+        {
+            auto* el = cablesXml->createNewChildElement("Cable");
+            el->setAttribute("src",     (int)c.src);
+            el->setAttribute("dst",     (int)c.dst);
+            el->setAttribute("amount",  c.amount);
+            el->setAttribute("enabled", c.enabled ? 1 : 0);
+        }
+    }
+
     copyXmlToBinary(*xml, destData);
 }
 
 void DFAFProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
-    if (xml && xml->hasTagName(apvts.state.getType()))
+    if (!xml) return;
+
+    // Restore APVTS params (strip PatchCables child first so APVTS doesn't see it)
+    if (auto* cablesXml = xml->getChildByName("PatchCables"))
+        xml->removeChildElement(cablesXml, false);   // detach, don't delete yet
+
+    if (xml->hasTagName(apvts.state.getType()))
         apvts.replaceState(juce::ValueTree::fromXml(*xml));
+
+    // Restore cables from the detached element
+    // (re-fetch after removeChildElement returned non-owning ptr)
+    const juce::ScopedLock sl(patchLock);
+    patchCables.clear();
+    // Re-parse original XML because we passed false to removeChildElement
+    std::unique_ptr<juce::XmlElement> xml2(getXmlFromBinary(data, sizeInBytes));
+    if (!xml2) return;
+    if (auto* cablesXml = xml2->getChildByName("PatchCables"))
+    {
+        for (auto* el : cablesXml->getChildIterator())
+        {
+            const int src = el->getIntAttribute("src", -1);
+            const int dst = el->getIntAttribute("dst", -1);
+            if (src < 0 || src >= PP_NUM_POINTS) continue;
+            if (dst < 0 || dst >= PP_NUM_POINTS) continue;
+            if (kPatchMeta[src].dir != PD_Out)   continue;
+            if (kPatchMeta[dst].dir != PD_In)    continue;
+            if ((int)patchCables.size() >= kMaxCables) break;
+            patchCables.push_back({
+                static_cast<PatchPoint>(src),
+                static_cast<PatchPoint>(dst),
+                (float)el->getDoubleAttribute("amount",  1.0),
+                el->getIntAttribute("enabled", 1) != 0
+            });
+        }
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

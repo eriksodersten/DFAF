@@ -1,5 +1,5 @@
 #!/bin/bash
 set -e
-cd /Users/eriksode/Projects/DFAF && cmake --build build
-cp -r build/DFAF_artefacts/Debug/AU/DFAF.component ~/Library/Audio/Plug-Ins/Components/
+/usr/local/bin/cmake --build /Users/eriksode/Projects/DFAF/build
+cp -r /Users/eriksode/Projects/DFAF/build/DFAF_artefacts/Debug/AU/DFAF.component ~/Library/Audio/Plug-Ins/Components/
 echo "✓ DFAF deployed"

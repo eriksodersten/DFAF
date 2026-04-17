@@ -89,7 +89,6 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     smoothedCutoff.setCurrentAndTargetValue(apvts.getRawParameterValue("cutoff")->load());
     smoothedVolume.setCurrentAndTargetValue(apvts.getRawParameterValue("volume")->load());
 }
-
 void DFAFProcessor::releaseResources() {}
 
 // =============================================================================

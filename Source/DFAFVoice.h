@@ -19,8 +19,7 @@ public:
         smoothedAmp = 0.0f;
         const float dezipperSeconds = 0.001f;
         ampDezipperCoeff = 1.0f - std::exp(-1.0f / ((float)sampleRate * dezipperSeconds));
-        vcfAttackCoeff   = ampDezipperCoeff;
-    }
+        vcfAttackCoeff   = ampDezipperCoeff;    }
 
     void setDecayTime(float seconds)      { vcoEnvelope.setDecayTime(seconds); }
     void setVcaDecayTime(float seconds)   { vcaEnvelope.setDecayTime(seconds); }
@@ -128,15 +127,13 @@ public:
         if (std::abs(smoothedAmp) < 1.0e-6f)
             smoothedAmp = 0.0f;
 
-        lastVcaEnv = smoothedAmp;
-        f.ampGain  = smoothedAmp;
+        lastVcaEnv = smoothedAmp;        f.ampGain  = smoothedAmp;
         return f;
     }
 
     void trigger(float midiNote, float velocity, float fmAmount = 0.3f)
     {
-        baseMidiNote = midiNote;
-        float seqOffset = midiNote - 60.0f;
+        baseMidiNote = midiNote;        float seqOffset = midiNote - 60.0f;
 
         float base1 = vco1BaseFreq > 0.0f ? vco1BaseFreq : midiNoteToHz(60.0f);
         float base2 = vco2BaseFreq > 0.0f ? vco2BaseFreq : midiNoteToHz(67.0f);
@@ -246,7 +243,6 @@ private:
     float smoothedAmp      = 0.0f;
     float ampDezipperCoeff = 1.0f;
     float vcfAttackCoeff   = 1.0f;
-
     DecayEnvelope vcoEnvelope;
     DecayEnvelope vcaEnvelope;
     DecayEnvelope vcfEnvelope;

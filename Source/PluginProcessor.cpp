@@ -84,6 +84,10 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     for (int p = 0; p < PP_NUM_POINTS; ++p)
         patchSourceValues[p] = patchInputSums[p] = 0.0f;
     vcfDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcfDecay"));
+    smoothedCutoff.reset(sampleRate, 0.01);
+    smoothedVolume.reset(sampleRate, 0.01);
+    smoothedCutoff.setCurrentAndTargetValue(apvts.getRawParameterValue("cutoff")->load());
+    smoothedVolume.setCurrentAndTargetValue(apvts.getRawParameterValue("volume")->load());
 }
 
 void DFAFProcessor::releaseResources() {}
@@ -176,6 +180,8 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     float cutoffVal   = apvts.getRawParameterValue("cutoff")->load();
     float resVal      = apvts.getRawParameterValue("resonance")->load();
     float volumeVal   = apvts.getRawParameterValue("volume")->load();
+    smoothedCutoff.setTargetValue(cutoffVal);
+    smoothedVolume.setTargetValue(volumeVal);
     float vcoDecayVal = apvts.getRawParameterValue("vcoDecay")->load();
     float vcaDecayVal = apvts.getRawParameterValue("vcaDecay")->load();
     float vcfDecayVal = apvts.getRawParameterValue("vcfDecay")->load();
@@ -268,6 +274,8 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                     }
 
                 auto frame = voice.processFrame();
+                float cutoffNow = smoothedCutoff.getNextValue();
+                float volumeNow = smoothedVolume.getNextValue();
 
                 // --- Patch engine -------------------------------------------
                 for (int p = 0; p < PP_NUM_POINTS; ++p) patchInputSums[p] = 0.0f;
@@ -308,18 +316,18 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 float vcfEnvMod = frame.vcfEnv;
                 float vcfEgHz = (shapedVcfEgAmt >= 0.0f)
                     ? (shapedVcfEgAmt * vcfEnvMod * 8500.0f)
-                    : (shapedVcfEgAmt * vcfEnvMod * (cutoffVal - 20.0f));
+                    : (shapedVcfEgAmt * vcfEnvMod * (cutoffNow - 20.0f));
                 // VCF MOD: patched signal replaces noise as mod source;
                 // noiseVcfMod knob sets depth for both paths.
                 float vcfModSignal  = hasVcfModCable
                     ? juce::jlimit(-1.0f, 1.0f, patchInputSums[PP_VCF_MOD])
                     : shapedNoiseMod;
-                float noisedCutoff  = cutoffVal * std::pow(2.0f, noiseVcfMod * vcfModSignal * 2.0f);
+                float noisedCutoff  = cutoffNow * std::pow(2.0f, noiseVcfMod * vcfModSignal * 2.0f);
                 float modulatedCutoff = noisedCutoff + vcfEgHz;
                 modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
                 filter.setCutoff(modulatedCutoff);
                 float vcaGain = juce::jlimit(0.0f, 1.0f, frame.ampGain + patchInputSums[PP_VCA_CV]);
-                float sample = filter.process(frame.raw * preTrimVal) * vcaGain * volumeVal;
+                float sample = filter.process(frame.raw * preTrimVal) * vcaGain * volumeNow;
         left[i]  = sample;
         right[i] = sample;
     }

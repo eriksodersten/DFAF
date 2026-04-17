@@ -101,6 +101,8 @@ public:
         float noiseModHpState   = 0.0f;
         float noiseModCoeff     = 0.028f;   // LP för noise->VCF textur
         float noiseModHpCoeff   = 0.0028f;  // mycket mild HPF för att ta bort långsam drift
+        juce::SmoothedValue<float> smoothedCutoff;
+        juce::SmoothedValue<float> smoothedVolume;
 
     // -------------------------------------------------------------------------
     // Patch system

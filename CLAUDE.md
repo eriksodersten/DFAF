@@ -12,20 +12,22 @@ Sequencer → VCO1/VCO2/Noise → VCF (MoogLadderFilter) → VCA → Output
 - `Source/` — all källkod
 - `build/` — cmake-build (används av deploy)
 - `build-xcode/` — xcode-build (används EJ av deploy, ignorera)
-- `deploy.sh` — bygger och kopierar AU till `~/Library/Audio/Plug-Ins/Components/`
+- `deploy.sh` — bygger och kopierar AU + VST3 till `~/Library/Audio/Plug-Ins/`
 - `PATCHING.md` — designregler för patchpanelen
 
 ## Regler för ändringar
 1. **Redigera alltid filer i huvudrepon:** `/Users/eriksode/Projects/DFAF/Source/`
 2. **Worktreen används EJ för edits**
 3. **Commit och push från huvudrepon** på branch `vcf-before-vca`, pusha som main: `git push origin vcf-before-vca:main`
-4. **Deploy efter varje edit:** `/usr/local/bin/cmake --build /Users/eriksode/Projects/DFAF/build && cp -r /Users/eriksode/Projects/DFAF/build/DFAF_artefacts/Debug/AU/DFAF.component ~/Library/Audio/Plug-Ins/Components/`
+4. **Deploy efter varje edit:** `bash /Users/eriksode/Projects/DFAF/deploy.sh` (kopierar AU + VST3)
 5. **Reviewa alltid** förslag innan kodning — fråga användaren om avvikelser
 
 ## Deploy (manuellt)
 ```bash
-/usr/local/bin/cmake --build /Users/eriksode/Projects/DFAF/build
-cp -r /Users/eriksode/Projects/DFAF/build/DFAF_artefacts/Debug/AU/DFAF.component ~/Library/Audio/Plug-Ins/Components/
+bash /Users/eriksode/Projects/DFAF/deploy.sh
+# kopierar både AU och VST3:
+#   build/DFAF_artefacts/Debug/AU/DFAF.component   → ~/Library/Audio/Plug-Ins/Components/
+#   build/DFAF_artefacts/Debug/VST3/DFAF.vst3      → ~/Library/Audio/Plug-Ins/VST3/
 ```
 
 ## Git

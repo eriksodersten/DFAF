@@ -24,7 +24,13 @@ public:
 
     void setDecayTime(float seconds)      { vcoEnvelope.setDecayTime(seconds); }
     void setVcaDecayTime(float seconds)   { vcaEnvelope.setDecayTime(seconds); }
-    void setVcfDecayTime(float seconds)   { vcfDecaySeconds = seconds; }
+    void setVcfDecayTime(float seconds)
+    {
+        vcfDecaySeconds = seconds;
+        float vcfDecayScaled = vcfDecaySeconds * (1.0f - vel * 0.5f);
+        vcfDecayScaled = juce::jmax(0.01f, vcfDecayScaled);
+        vcfEnvelope.setDecayTime(vcfDecayScaled);
+    }
     void setFmAmount(float amount)        { fm = amount; }
     void setVco1EgAmount(float semitones) { vco1EgAmt = semitones; }
     void setVco2EgAmount(float semitones) { vco2EgAmt = semitones; }
@@ -69,7 +75,7 @@ public:
             else
                 lastVcfEnv = targetVcfEnv;
 
-            f.vcoEnv = vcoEnv;
+            f.vcoEnv = vcoEnv * vel;
             float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
             float inst1    = modFreq1 / (float)sr * phaseDir1;
             phase1 += inst1;
@@ -158,9 +164,7 @@ public:
                         {
                             vel = velocity;
                             vcoEnvelope.trigger();
-                            float vcfDecayScaled = vcfDecaySeconds * (1.0f - vel * 0.5f);
-                            vcfDecayScaled = juce::jmax(0.01f, vcfDecayScaled);
-                            vcfEnvelope.setDecayTime(vcfDecayScaled);
+                            setVcfDecayTime(vcfDecaySeconds);
                             vcfEnvelope.trigger();
                             vcaAttack.reset((float)sr, vcaAttackSeconds);
                             vcaAttack.setCurrentAndTargetValue(0.0f);

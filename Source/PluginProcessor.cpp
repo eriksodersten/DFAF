@@ -259,33 +259,6 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                             const auto& step = sequencer.getStep(currentStep);
                             currentVelocity = step.velocity;
                             patchSourceValues[PP_VELOCITY] = currentVelocity;
-                            // VCF decay: compute at trigger time in normalised domain
-                            if (vcfDecayParam != nullptr)
-                            {
-                                float norm = vcfDecayParam->convertTo0to1(vcfDecayVal);
-                                if (hasVcfDecayCable)
-                                {
-                                    // Snapshot with post-trigger peak values for envelope sources
-                                    float trigSrc[PP_NUM_POINTS];
-                                    for (int p = 0; p < PP_NUM_POINTS; ++p) trigSrc[p] = patchSourceValues[p];
-                                    trigSrc[PP_VCO_EG] = currentVelocity;
-                                    trigSrc[PP_VCF_EG] = currentVelocity;
-                                    trigSrc[PP_VCA_EG] = 0.0f;
-
-                                    float cv = 0.0f;
-                                    for (int c = 0; c < nCables; ++c)
-                                        if (cableSnap.data[c].enabled && cableSnap.data[c].dst == PP_VCF_DECAY)
-                                            cv += trigSrc[cableSnap.data[c].src] * cableSnap.data[c].amount;
-
-                                    constexpr float vcfDecayCvScale = 0.35f;
-                                    norm = juce::jlimit(0.0f, 1.0f, norm + cv * vcfDecayCvScale);
-                                }
-                                voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
-                            }
-                            else
-                            {
-                                voice.setVcfDecayTime(vcfDecayVal);
-                            }
                             voice.trigger(step.pitch, step.velocity, fmVal);
                         }
                     }
@@ -307,6 +280,22 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                         patchInputSums[cableSnap.data[c].dst] +=
                             patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
                 // ------------------------------------------------------------
+
+                // VCF decay: continuous CV from real patch sources in normalised parameter domain
+                if (vcfDecayParam != nullptr)
+                {
+                    float norm = vcfDecayParam->convertTo0to1(vcfDecayVal);
+                    if (hasVcfDecayCable)
+                    {
+                        constexpr float vcfDecayCvScale = 0.35f;
+                        norm = juce::jlimit(0.0f, 1.0f, norm + patchInputSums[PP_VCF_DECAY] * vcfDecayCvScale);
+                    }
+                    voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
+                }
+                else
+                {
+                    voice.setVcfDecayTime(vcfDecayVal);
+                }
 
                 smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
                 noiseModHpState  += (smoothedNoiseMod - noiseModHpState) * noiseModHpCoeff;

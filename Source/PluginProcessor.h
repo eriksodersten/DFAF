@@ -96,7 +96,6 @@ public:
         DFAFVoice       voice;
         MoogLadderFilter filter;
         float currentVelocity    = 0.0f;   // held from last trigger, used as patch source
-        float lastVcfDecayMod   = 0.0f;   // previous block's PP_VCF_DECAY sum (block-rate CV)
         juce::RangedAudioParameter* vcfDecayParam = nullptr;  // cached for normalised-domain mod
         float smoothedNoiseMod  = 0.0f;
         float noiseModHpState   = 0.0f;

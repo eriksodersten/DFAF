@@ -85,24 +85,26 @@ public:
 
             float vco1out;
             if (vco1Wave == 0) {
-                vco1out = (phase1 < 0.5f ? 1.0f : -1.0f) * phaseDir1;
+                float dt1 = juce::jlimit(0.0f, 0.5f, std::abs(inst1));
+                vco1out = squarePolyBlep(phase1, dt1) * phaseDir1;
             } else {
                 float p   = phase1 * 4.0f;
                 float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
                 vco1out   = std::tanh(2.2f * tri) / std::tanh(2.2f) * phaseDir1;
             }
 
+            float modulatedFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + fm * vco1out * 2.0f);
+            float inst2          = modulatedFreq2 / (float)sr * phaseDir2;
             float vco2out;
             if (vco2Wave == 0) {
-                vco2out = (phase2 < 0.5f ? 1.0f : -1.0f);
+                float dt2 = juce::jlimit(0.0f, 0.5f, std::abs(inst2));
+                vco2out = squarePolyBlep(phase2, dt2);
             } else {
                 float p   = phase2 * 4.0f;
                 float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
                 vco2out   = std::tanh(2.2f * tri) / std::tanh(2.2f);
             }
 
-            float modulatedFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + fm * vco1out * 2.0f);
-            float inst2          = modulatedFreq2 / (float)sr * phaseDir2;
             phase2 += inst2;
             if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
             if (phase2 <  0.0f) { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
@@ -176,6 +178,39 @@ public:
     bool isActive() const { return vcaEnvelope.isActive(); }
 
 private:
+    static float polyBlep(float t, float dt)
+    {
+        if (dt <= 0.0f)
+            return 0.0f;
+
+        if (t < dt)
+        {
+            t /= dt;
+            return t + t - t * t - 1.0f;
+        }
+
+        if (t > 1.0f - dt)
+        {
+            t = (t - 1.0f) / dt;
+            return t * t + t + t + 1.0f;
+        }
+
+        return 0.0f;
+    }
+
+    static float squarePolyBlep(float phase, float dt)
+    {
+        float y = (phase < 0.5f) ? 1.0f : -1.0f;
+        y += polyBlep(phase, dt);
+
+        float secondEdgePhase = phase + 0.5f;
+        if (secondEdgePhase >= 1.0f)
+            secondEdgePhase -= 1.0f;
+
+        y -= polyBlep(secondEdgePhase, dt);
+        return y;
+    }
+
     static float midiNoteToHz(float note)
     {
         return 440.0f * std::pow(2.0f, (note - 69.0f) / 12.0f);

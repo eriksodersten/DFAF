@@ -86,8 +86,12 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     vcfDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcfDecay"));
     smoothedCutoff.reset(sampleRate, 0.01);
     smoothedVolume.reset(sampleRate, 0.01);
+    smoothedVco1Level.reset(sampleRate, 0.01);
+    smoothedVco2Level.reset(sampleRate, 0.01);
     smoothedCutoff.setCurrentAndTargetValue(apvts.getRawParameterValue("cutoff")->load());
     smoothedVolume.setCurrentAndTargetValue(apvts.getRawParameterValue("volume")->load());
+    smoothedVco1Level.setCurrentAndTargetValue(apvts.getRawParameterValue("vco1Level")->load());
+    smoothedVco2Level.setCurrentAndTargetValue(apvts.getRawParameterValue("vco2Level")->load());
 }
 void DFAFProcessor::releaseResources() {}
 
@@ -181,6 +185,8 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     float volumeVal   = apvts.getRawParameterValue("volume")->load();
     smoothedCutoff.setTargetValue(cutoffVal);
     smoothedVolume.setTargetValue(volumeVal);
+    smoothedVco1Level.setTargetValue(apvts.getRawParameterValue("vco1Level")->load());
+    smoothedVco2Level.setTargetValue(apvts.getRawParameterValue("vco2Level")->load());
     float vcoDecayVal = apvts.getRawParameterValue("vcoDecay")->load();
     float vcaDecayVal = apvts.getRawParameterValue("vcaDecay")->load();
     float vcfDecayVal = apvts.getRawParameterValue("vcfDecay")->load();
@@ -220,8 +226,6 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     voice.setVco2EgAmount(vco2EgAmt);
     voice.setVcfEgAmount(vcfEgAmt);
     voice.setNoiseLevel(noiseLevelVal);
-    voice.setVco1Level(vco1LevelVal);
-        voice.setVco2Level(vco2LevelVal);
     voice.setVcaEgAmount(vcaEgVal);
     voice.setVcaAttackTime(0.001f + vcaEgVal * 0.099f);
 
@@ -272,6 +276,8 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                         lastStep = -1;
                     }
 
+                voice.setVco1Level(smoothedVco1Level.getNextValue());
+                voice.setVco2Level(smoothedVco2Level.getNextValue());
                 auto frame = voice.processFrame();
                 float cutoffNow = smoothedCutoff.getNextValue();
                 float volumeNow = smoothedVolume.getNextValue();

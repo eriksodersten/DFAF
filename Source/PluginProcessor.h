@@ -103,6 +103,8 @@ public:
         float noiseModHpCoeff   = 0.0028f;  // mycket mild HPF för att ta bort långsam drift
     juce::SmoothedValue<float> smoothedCutoff;
     juce::SmoothedValue<float> smoothedVolume;
+    juce::SmoothedValue<float> smoothedVco1Level;
+    juce::SmoothedValue<float> smoothedVco2Level;
     // -------------------------------------------------------------------------
     // Patch system
     // -------------------------------------------------------------------------

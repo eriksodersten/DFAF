@@ -13,6 +13,7 @@ public:
         vcoEnvelope.prepare(sampleRate);
         vcaEnvelope.prepare(sampleRate);
         vcfEnvelope.prepare(sampleRate);
+
         smoothedVcoEnv.reset(sampleRate, 0.001);
         smoothedFreq1.reset(sampleRate, 0.001);
         smoothedFreq2.reset(sampleRate, 0.001);
@@ -20,12 +21,16 @@ public:
         smoothedFreq1.setCurrentAndTargetValue(freq1);
         smoothedFreq2.setCurrentAndTargetValue(freq2);
         smoothedFm.setCurrentAndTargetValue(fm);
+
         vcaAttack.reset(sampleRate, 0.001);
         vcaAttack.setCurrentAndTargetValue(1.0f);
+
         smoothedAmp = 0.0f;
+
         const float dezipperSeconds = 0.001f;
         ampDezipperCoeff = 1.0f - std::exp(-1.0f / ((float)sampleRate * dezipperSeconds));
-        vcfAttackCoeff   = ampDezipperCoeff;    }
+        vcfAttackCoeff   = ampDezipperCoeff;
+    }
 
     void setDecayTime(float seconds)      { vcoEnvelope.setDecayTime(seconds); }
     void setVcaDecayTime(float seconds)   { vcaEnvelope.setDecayTime(seconds); }
@@ -81,46 +86,65 @@ public:
                 lastVcfEnv = targetVcfEnv;
 
             f.vcoEnv = vcoEnv * vel;
-            float currentFreq1 = smoothedFreq1.getNextValue();
-            float currentFreq2 = smoothedFreq2.getNextValue();
-            float currentFm    = smoothedFm.getNextValue();
-            float modFreq1     = currentFreq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
-            float inst1        = modFreq1 / (float)sr * phaseDir1;
-            phase1 += inst1;
-            bool sync1 = false;
-            if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
-            if (phase1 <  0.0f) { phase1 = -phase1;        phaseDir1 = -phaseDir1; sync1 = true; }
 
-            float vco1out;
-            if (vco1Wave == 0) {
-                float dt1 = juce::jlimit(0.0f, 0.5f, std::abs(inst1));
-                vco1out = squarePolyBlep(phase1, dt1) * phaseDir1;
-            } else {
-                float p   = phase1 * 4.0f;
-                float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
-                vco1out   = std::tanh(2.2f * tri) / std::tanh(2.2f) * phaseDir1;
+            const float currentFreq1  = smoothedFreq1.getNextValue();
+            const float currentFreq2  = smoothedFreq2.getNextValue();
+            const float currentFm     = smoothedFm.getNextValue();
+            const float oscSampleRate = (float)sr * 2.0f;
+
+            float toneSum = 0.0f;
+
+            for (int os = 0; os < 2; ++os)
+            {
+                const float modFreq1 = currentFreq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
+                const float inst1    = modFreq1 / oscSampleRate * phaseDir1;
+
+                phase1 += inst1;
+                bool sync1 = false;
+                if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
+                if (phase1 <  0.0f) { phase1 = -phase1;        phaseDir1 = -phaseDir1; sync1 = true; }
+
+                float vco1out;
+                if (vco1Wave == 0)
+                {
+                    float dt1 = juce::jlimit(0.0f, 0.5f, std::abs(inst1));
+                    vco1out = squarePolyBlep(phase1, dt1) * phaseDir1;
+                }
+                else
+                {
+                    float p   = phase1 * 4.0f;
+                    float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
+                    vco1out   = std::tanh(2.2f * tri) / std::tanh(2.2f) * phaseDir1;
+                }
+
+                const float modulatedFreq2 = currentFreq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + currentFm * vco1out * 2.0f);
+                const float inst2          = modulatedFreq2 / oscSampleRate * phaseDir2;
+
+                phase2 += inst2;
+                if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
+                if (phase2 <  0.0f) { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
+                if (hardSync && sync1) { phase2 = 0.0f; phaseDir2 = 1.0f; }
+
+                float vco2out;
+                if (vco2Wave == 0)
+                {
+                    float dt2 = juce::jlimit(0.0f, 0.5f, std::abs(inst2));
+                    vco2out = squarePolyBlep(phase2, dt2) * phaseDir2;
+                }
+                else
+                {
+                    float p   = phase2 * 4.0f;
+                    float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
+                    vco2out   = std::tanh(2.2f * tri) / std::tanh(2.2f) * phaseDir2;
+                }
+
+                toneSum += vco1out * vco1Level + vco2out * vco2Level;
             }
-
-            float modulatedFreq2 = currentFreq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + currentFm * vco1out * 2.0f);
-            float inst2          = modulatedFreq2 / (float)sr * phaseDir2;
-            float vco2out;
-            if (vco2Wave == 0) {
-                float dt2 = juce::jlimit(0.0f, 0.5f, std::abs(inst2));
-                vco2out = squarePolyBlep(phase2, dt2);
-            } else {
-                float p   = phase2 * 4.0f;
-                float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
-                vco2out   = std::tanh(2.2f * tri) / std::tanh(2.2f);
-            }
-
-            phase2 += inst2;
-            if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
-            if (phase2 <  0.0f) { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
-            if (hardSync && sync1) { phase2 = 0.0f; phaseDir2 = 1.0f; }
 
             float noise   = random.nextFloat() * 2.0f - 1.0f;
             float toneAmp = vcoEnv;
-            f.raw      = vco1out * vco1Level * toneAmp + vco2out * vco2Level * toneAmp + noise * noiseLevel;
+            float tone    = 0.5f * toneSum;
+            f.raw      = tone * toneAmp + noise * noiseLevel;
             f.vcfEnv   = lastVcfEnv * vel;
             f.noiseRaw = noise;
             targetAmp = vcaEnv * attackGain;
@@ -136,7 +160,8 @@ public:
         if (std::abs(smoothedAmp) < 1.0e-6f)
             smoothedAmp = 0.0f;
 
-        lastVcaEnv = smoothedAmp;        f.ampGain  = smoothedAmp;
+        lastVcaEnv = smoothedAmp;
+        f.ampGain  = smoothedAmp;
         return f;
     }
 
@@ -174,16 +199,16 @@ public:
         smoothedFm.setTargetValue(fm);
 
         if (velocity > 0.0f)
-                        {
-                            vel = velocity;
-                            vcoEnvelope.trigger();
-                            setVcfDecayTime(vcfDecaySeconds);
-                            vcfEnvelope.trigger();
-                            vcaAttack.reset((float)sr, vcaAttackSeconds);
-                            vcaAttack.setCurrentAndTargetValue(0.0f);
-                            vcaAttack.setTargetValue(1.0f);
-                            vcaEnvelope.trigger(vel);
-                        }
+        {
+            vel = velocity;
+            vcoEnvelope.trigger();
+            setVcfDecayTime(vcfDecaySeconds);
+            vcfEnvelope.trigger();
+            vcaAttack.reset((float)sr, vcaAttackSeconds);
+            vcaAttack.setCurrentAndTargetValue(0.0f);
+            vcaAttack.setTargetValue(1.0f);
+            vcaEnvelope.trigger(vel);
+        }
     }
 
     bool isActive() const { return vcaEnvelope.isActive(); }
@@ -209,6 +234,7 @@ private:
         return 0.0f;
     }
 
+    // Band-limit the square by smoothing both discontinuities with polyBLEP.
     static float squarePolyBlep(float phase, float dt)
     {
         float y = (phase < 0.5f) ? 1.0f : -1.0f;
@@ -246,8 +272,8 @@ private:
     float vco1Level        = 0.6f;
     float vco2Level        = 0.2f;
     float vcaEgAmount      = 0.5f;
-    float vcaAttackSeconds  = 0.001f;
-        float vcfDecaySeconds   = 0.3f;
+    float vcaAttackSeconds = 0.001f;
+    float vcfDecaySeconds  = 0.3f;
     float vco1BaseFreq     = 0.0f;
     float vco2BaseFreq     = 0.0f;
     int   seqPitchRouting  = 0;

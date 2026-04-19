@@ -255,84 +255,99 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     auto* right = buffer.getWritePointer(1);
 
     for (int i = 0; i < buffer.getNumSamples(); ++i)
+    {
+        if (isPlaying)
+        {
+            double samplePpq = ppqPosition + (double)i * bpm / (60.0 * currentSampleRate);
+            int hostStep = (int)(samplePpq / ppqPerStep) % DFAFSequencer::numSteps;
+
+            if (sequencerResetPending.exchange(false, std::memory_order_acq_rel))
             {
-                if (isPlaying)
-                    {
-                        double samplePpq = ppqPosition + (double)i * bpm / (60.0 * currentSampleRate);
-                        int currentStep = (int)(samplePpq / ppqPerStep) % 8;
+                sequencerStepOffset = (DFAFSequencer::numSteps - hostStep) % DFAFSequencer::numSteps;
+                lastStep = -1;
+            }
 
-                        if (currentStep != lastStep)
-                        {
-                            lastStep = currentStep;
-                            sequencer.setCurrentStep(currentStep);
-                            const auto& step = sequencer.getStep(currentStep);
-                            currentVelocity = step.velocity;
-                            patchSourceValues[PP_VELOCITY] = currentVelocity;
-                            voice.trigger(step.pitch, step.velocity, fmVal);
-                        }
-                    }
-                else
-                    {
-                        lastStep = -1;
-                    }
+            int currentStep = (hostStep + sequencerStepOffset) % DFAFSequencer::numSteps;
 
-                voice.setVco1Level(smoothedVco1Level.getNextValue());
-                voice.setVco2Level(smoothedVco2Level.getNextValue());
-                auto frame = voice.processFrame();
-                float cutoffNow = smoothedCutoff.getNextValue();
-                float volumeNow = smoothedVolume.getNextValue();
+            if (currentStep != lastStep)
+            {
+                lastStep = currentStep;
+                sequencer.setCurrentStep(currentStep);
+                const auto& step = sequencer.getStep(currentStep);
+                currentVelocity = step.velocity;
+                patchSourceValues[PP_VELOCITY] = currentVelocity;
+                voice.trigger(step.pitch, step.velocity, fmVal);
+            }
+        }
+        else
+        {
+            if (sequencerResetPending.exchange(false, std::memory_order_acq_rel))
+            {
+                sequencerStepOffset = 0;
+                sequencer.setCurrentStep(0);
+            }
 
-                // --- Patch engine -------------------------------------------
-                for (int p = 0; p < PP_NUM_POINTS; ++p) patchInputSums[p] = 0.0f;
-                patchSourceValues[PP_VCF_EG]    = frame.vcfEnv;
-                patchSourceValues[PP_VCA_EG]    = frame.ampGain;
-                patchSourceValues[PP_VELOCITY]  = currentVelocity;
-                patchSourceValues[PP_VCO_EG]    = frame.vcoEnv;
-                for (int c = 0; c < nCables; ++c)
-                    if (cableSnap.data[c].enabled)
-                        patchInputSums[cableSnap.data[c].dst] +=
-                            patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
-                // ------------------------------------------------------------
+            lastStep = -1;
+        }
 
-                // VCF decay: continuous CV from real patch sources in normalised parameter domain
-                if (vcfDecayParam != nullptr)
-                {
-                    float norm = vcfDecayParam->convertTo0to1(vcfDecayVal);
-                    if (hasVcfDecayCable)
-                    {
-                        constexpr float vcfDecayCvScale = 0.35f;
-                        norm = juce::jlimit(0.0f, 1.0f, norm + patchInputSums[PP_VCF_DECAY] * vcfDecayCvScale);
-                    }
-                    voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
-                }
-                else
-                {
-                    voice.setVcfDecayTime(vcfDecayVal);
-                }
+        voice.setVco1Level(smoothedVco1Level.getNextValue());
+        voice.setVco2Level(smoothedVco2Level.getNextValue());
+        auto frame = voice.processFrame();
+        float cutoffNow = smoothedCutoff.getNextValue();
+        float volumeNow = smoothedVolume.getNextValue();
 
-                smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
-                noiseModHpState  += (smoothedNoiseMod - noiseModHpState) * noiseModHpCoeff;
-                float bandLimitedNoiseMod = smoothedNoiseMod - noiseModHpState;
-                float shapedNoiseMod = std::tanh(bandLimitedNoiseMod * 1.5f) / std::tanh(1.5f);
-                float shapedVcfEgAmt = (vcfEgAmt >= 0.0f)
-                    ? (vcfEgAmt * vcfEgAmt)
-                    : -(vcfEgAmt * vcfEgAmt);
+        // --- Patch engine -------------------------------------------
+        for (int p = 0; p < PP_NUM_POINTS; ++p) patchInputSums[p] = 0.0f;
+        patchSourceValues[PP_VCF_EG]   = frame.vcfEnv;
+        patchSourceValues[PP_VCA_EG]   = frame.ampGain;
+        patchSourceValues[PP_VELOCITY] = currentVelocity;
+        patchSourceValues[PP_VCO_EG]   = frame.vcoEnv;
+        for (int c = 0; c < nCables; ++c)
+            if (cableSnap.data[c].enabled)
+                patchInputSums[cableSnap.data[c].dst] +=
+                    patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
+        // ------------------------------------------------------------
 
-                float vcfEnvMod = frame.vcfEnv;
-                float vcfEgHz = (shapedVcfEgAmt >= 0.0f)
-                    ? (shapedVcfEgAmt * vcfEnvMod * 8500.0f)
-                    : (shapedVcfEgAmt * vcfEnvMod * (cutoffNow - 20.0f));
-                // VCF MOD: patched signal replaces noise as mod source;
-                // noiseVcfMod knob sets depth for both paths.
-                float vcfModSignal  = hasVcfModCable
-                    ? juce::jlimit(-1.0f, 1.0f, patchInputSums[PP_VCF_MOD])
-                    : shapedNoiseMod;
-                float noisedCutoff  = cutoffNow * std::pow(2.0f, noiseVcfMod * vcfModSignal * 2.0f);
-                float modulatedCutoff = noisedCutoff + vcfEgHz;
-                modulatedCutoff = juce::jlimit(20.0f, 20000.0f, modulatedCutoff);
-                filter.setCutoff(modulatedCutoff);
-                float vcaGain = juce::jlimit(0.0f, 1.0f, frame.ampGain + patchInputSums[PP_VCA_CV]);
-                float sample = filter.process(frame.raw * preTrimVal) * vcaGain * volumeNow;
+        // VCF decay: continuous CV from real patch sources in normalised parameter domain
+        if (vcfDecayParam != nullptr)
+        {
+            float norm = vcfDecayParam->convertTo0to1(vcfDecayVal);
+            if (hasVcfDecayCable)
+            {
+                constexpr float vcfDecayCvScale = 0.35f;
+                norm = juce::jlimit(0.0f, 1.0f, norm + patchInputSums[PP_VCF_DECAY] * vcfDecayCvScale);
+            }
+            voice.setVcfDecayTime(vcfDecayParam->convertFrom0to1(norm));
+        }
+        else
+        {
+            voice.setVcfDecayTime(vcfDecayVal);
+        }
+
+        smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
+        noiseModHpState  += (smoothedNoiseMod - noiseModHpState) * noiseModHpCoeff;
+        float bandLimitedNoiseMod = smoothedNoiseMod - noiseModHpState;
+        float shapedNoiseMod = std::tanh(bandLimitedNoiseMod * 1.5f) / std::tanh(1.5f);
+        float shapedVcfEgAmt = (vcfEgAmt >= 0.0f)
+            ? (vcfEgAmt * vcfEgAmt)
+            : -(vcfEgAmt * vcfEgAmt);
+
+        float vcfEnvMod = frame.vcfEnv;
+        float vcfEgHz = (shapedVcfEgAmt >= 0.0f)
+            ? (shapedVcfEgAmt * vcfEnvMod * 8500.0f)
+            : (shapedVcfEgAmt * vcfEnvMod * (cutoffNow - 20.0f));
+
+        // VCF MOD: patched signal replaces noise as mod source;
+        // noiseVcfMod knob sets depth for both paths.
+        float vcfModSignal = hasVcfModCable
+            ? juce::jlimit(-1.0f, 1.0f, patchInputSums[PP_VCF_MOD])
+            : shapedNoiseMod;
+        float noisedCutoff    = cutoffNow * std::pow(2.0f, noiseVcfMod * vcfModSignal * 2.0f);
+        float modulatedCutoff = juce::jlimit(20.0f, 20000.0f, noisedCutoff + vcfEgHz);
+        filter.setCutoff(modulatedCutoff);
+
+        float vcaGain = juce::jlimit(0.0f, 1.0f, frame.ampGain + patchInputSums[PP_VCA_CV]);
+        float sample  = filter.process(frame.raw * preTrimVal) * vcaGain * volumeNow;
         left[i]  = sample;
         right[i] = sample;
     }

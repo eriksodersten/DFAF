@@ -86,14 +86,16 @@ public:
         static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     int getCurrentStep() const { return sequencer.getCurrentStep(); }
-            void resetSequencer() { sequencer.reset(); lastStep = -1; }
+    void resetSequencer() { sequencerResetPending.store(true, std::memory_order_release); }
 
     DFAFSequencer   sequencer;
     double currentSampleRate = 44100.0;
 
     // Sequencer clock state
-            int  lastStep           = -1;
-        DFAFVoice       voice;
+    int  lastStep            = -1;
+    int  sequencerStepOffset = 0;
+    std::atomic<bool> sequencerResetPending { false };
+    DFAFVoice       voice;
         MoogLadderFilter filter;
         float currentVelocity    = 0.0f;   // held from last trigger, used as patch source
         juce::RangedAudioParameter* vcfDecayParam = nullptr;  // cached for normalised-domain mod

@@ -14,6 +14,12 @@ public:
         vcaEnvelope.prepare(sampleRate);
         vcfEnvelope.prepare(sampleRate);
         smoothedVcoEnv.reset(sampleRate, 0.001);
+        smoothedFreq1.reset(sampleRate, 0.001);
+        smoothedFreq2.reset(sampleRate, 0.001);
+        smoothedFm.reset(sampleRate, 0.001);
+        smoothedFreq1.setCurrentAndTargetValue(freq1);
+        smoothedFreq2.setCurrentAndTargetValue(freq2);
+        smoothedFm.setCurrentAndTargetValue(fm);
         vcaAttack.reset(sampleRate, 0.001);
         vcaAttack.setCurrentAndTargetValue(1.0f);
         smoothedAmp = 0.0f;
@@ -75,8 +81,11 @@ public:
                 lastVcfEnv = targetVcfEnv;
 
             f.vcoEnv = vcoEnv * vel;
-            float modFreq1 = freq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
-            float inst1    = modFreq1 / (float)sr * phaseDir1;
+            float currentFreq1 = smoothedFreq1.getNextValue();
+            float currentFreq2 = smoothedFreq2.getNextValue();
+            float currentFm    = smoothedFm.getNextValue();
+            float modFreq1     = currentFreq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
+            float inst1        = modFreq1 / (float)sr * phaseDir1;
             phase1 += inst1;
             bool sync1 = false;
             if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
@@ -92,7 +101,7 @@ public:
                 vco1out   = std::tanh(2.2f * tri) / std::tanh(2.2f) * phaseDir1;
             }
 
-            float modulatedFreq2 = freq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + fm * vco1out * 2.0f);
+            float modulatedFreq2 = currentFreq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + currentFm * vco1out * 2.0f);
             float inst2          = modulatedFreq2 / (float)sr * phaseDir2;
             float vco2out;
             if (vco2Wave == 0) {
@@ -133,31 +142,36 @@ public:
 
     void trigger(float midiNote, float velocity, float fmAmount = 0.3f)
     {
-        baseMidiNote = midiNote;        float seqOffset = midiNote - 60.0f;
+        baseMidiNote = midiNote;
+        float seqOffset = midiNote - 60.0f;
 
         float base1 = vco1BaseFreq > 0.0f ? vco1BaseFreq : midiNoteToHz(60.0f);
         float base2 = vco2BaseFreq > 0.0f ? vco2BaseFreq : midiNoteToHz(67.0f);
+        float targetFreq1;
+        float targetFreq2;
 
         if (seqPitchRouting == 0)
         {
-            freq1 = base1 * std::pow(2.0f, seqOffset / 12.0f);
-            freq2 = base2 * std::pow(2.0f, seqOffset / 12.0f);
+            targetFreq1 = base1 * std::pow(2.0f, seqOffset / 12.0f);
+            targetFreq2 = base2 * std::pow(2.0f, seqOffset / 12.0f);
         }
         else if (seqPitchRouting == 1)
         {
-            freq1 = base1;
-            freq2 = base2;
+            targetFreq1 = base1;
+            targetFreq2 = base2;
         }
         else
         {
-            freq1 = base1;
-            freq2 = base2 * std::pow(2.0f, seqOffset / 12.0f);
+            targetFreq1 = base1;
+            targetFreq2 = base2 * std::pow(2.0f, seqOffset / 12.0f);
         }
 
-        fm  = fmAmount;
-                if (vco1Wave == 1) phaseDir1 = 1.0f;
-                if (vco2Wave == 1) phaseDir2 = 1.0f;
-                smoothedVcoEnv.setCurrentAndTargetValue(smoothedVcoEnv.getCurrentValue());
+        freq1 = targetFreq1;
+        freq2 = targetFreq2;
+        fm    = fmAmount;
+        smoothedFreq1.setTargetValue(freq1);
+        smoothedFreq2.setTargetValue(freq2);
+        smoothedFm.setTargetValue(fm);
 
         if (velocity > 0.0f)
                         {
@@ -248,5 +262,8 @@ private:
     DecayEnvelope vcfEnvelope;
     juce::Random  random;
     juce::SmoothedValue<float> smoothedVcoEnv;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> smoothedFreq1;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> smoothedFreq2;
+    juce::SmoothedValue<float> smoothedFm;
     juce::SmoothedValue<float> vcaAttack;
 };

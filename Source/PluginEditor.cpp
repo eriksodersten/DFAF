@@ -31,8 +31,8 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         seqPitchModBox.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(seqPitchModBox);
 
-    hardSyncBox.addItem("ON",  1);
-        hardSyncBox.addItem("OFF", 2);
+    hardSyncBox.addItem("OFF", 1);
+        hardSyncBox.addItem("ON",  2);
         hardSyncBox.setJustificationType(juce::Justification::centred);
         addAndMakeVisible(hardSyncBox);
 

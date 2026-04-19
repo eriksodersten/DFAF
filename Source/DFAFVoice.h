@@ -41,7 +41,7 @@ public:
         vcfDecayScaled = juce::jmax(0.01f, vcfDecayScaled);
         vcfEnvelope.setDecayTime(vcfDecayScaled);
     }
-    void setFmAmount(float amount)        { fm = amount; }
+    void setFmAmount(float amount)        { fm = amount; smoothedFm.setTargetValue(fm); }
     void setVco1EgAmount(float semitones) { vco1EgAmt = semitones; }
     void setVco2EgAmount(float semitones) { vco2EgAmt = semitones; }
     void setVcfEgAmount(float amount)     { vcfEgAmt = amount; }
@@ -102,7 +102,7 @@ public:
                 phase1 += inst1;
                 bool sync1 = false;
                 if (phase1 >= 1.0f) { phase1 = 2.0f - phase1; phaseDir1 = -phaseDir1; sync1 = true; }
-                if (phase1 <  0.0f) { phase1 = -phase1;        phaseDir1 = -phaseDir1; sync1 = true; }
+                if (phase1 <  0.0f) { phase1 = -phase1;        phaseDir1 = -phaseDir1; }
 
                 float vco1out;
                 if (vco1Wave == 0)
@@ -117,25 +117,27 @@ public:
                     vco1out   = std::tanh(2.2f * tri) / std::tanh(2.2f) * phaseDir1;
                 }
 
-                const float modulatedFreq2 = currentFreq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f + currentFm * vco1out * 2.0f);
-                const float inst2          = modulatedFreq2 / oscSampleRate * phaseDir2;
+                const float carrierFreq2   = currentFreq2 * std::pow(2.0f, vco2EgAmt * vcoEnv * vel / 12.0f);
+                const float linearFmHz     = currentFreq2 * currentFm * vco1out * 2.0f;
+                const float modulatedFreq2 = carrierFreq2 + linearFmHz;
+                const float inst2          = modulatedFreq2 / oscSampleRate;
 
                 phase2 += inst2;
-                if (phase2 >= 1.0f) { phase2 = 2.0f - phase2; phaseDir2 = -phaseDir2; }
-                if (phase2 <  0.0f) { phase2 = -phase2;        phaseDir2 = -phaseDir2; }
-                if (hardSync && sync1) { phase2 = 0.0f; phaseDir2 = 1.0f; }
+                while (phase2 >= 1.0f) phase2 -= 1.0f;
+                while (phase2 <  0.0f) phase2 += 1.0f;
+                if (hardSync && sync1) { phase2 = 0.0f; }
 
                 float vco2out;
                 if (vco2Wave == 0)
                 {
                     float dt2 = juce::jlimit(0.0f, 0.5f, std::abs(inst2));
-                    vco2out = squarePolyBlep(phase2, dt2) * phaseDir2;
+                    vco2out = squarePolyBlep(phase2, dt2);
                 }
                 else
                 {
                     float p   = phase2 * 4.0f;
                     float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
-                    vco2out   = std::tanh(2.2f * tri) / std::tanh(2.2f) * phaseDir2;
+                    vco2out   = std::tanh(2.2f * tri) / std::tanh(2.2f);
                 }
 
                 toneSum += vco1out * vco1Level + vco2out * vco2Level;
@@ -165,7 +167,7 @@ public:
         return f;
     }
 
-    void trigger(float midiNote, float velocity, float fmAmount = 0.3f)
+    void trigger(float midiNote, float velocity)
     {
         baseMidiNote = midiNote;
         float seqOffset = midiNote - 60.0f;
@@ -193,10 +195,8 @@ public:
 
         freq1 = targetFreq1;
         freq2 = targetFreq2;
-        fm    = fmAmount;
         smoothedFreq1.setTargetValue(freq1);
         smoothedFreq2.setTargetValue(freq2);
-        smoothedFm.setTargetValue(fm);
 
         if (velocity > 0.0f)
         {

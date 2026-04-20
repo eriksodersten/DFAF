@@ -292,21 +292,21 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
         g.fillEllipse((float)(jx - 4), (float)(jy - 4), 8.0f, 8.0f);
 
         g.setColour(labelBlack);
-        g.setFont(juce::FontOptions(7.0f));
-        g.drawText(lbl, jx - 24, jy + 12, 48, 9, juce::Justification::centred);
+        g.setFont(juce::FontOptions(6.5f));
+        g.drawFittedText(lbl, jx - 28, jy + 12, 56, 18, juce::Justification::centred, 2);
     };
 
     struct JackDef { const char* label; };
 
     // col1 = all INs, col2 = empty, col3 = all OUTs
     JackDef ioRows[] = {
-        {"VCA CV"},   {""}, {"VCA EG"},
-        {"VCA DEC"},  {""}, {"VCF EG"},
-        {"VCF MOD"},  {""}, {"VCO EG"},
-        {"VCF DEC"},  {""}, {"VCO 1"},
-        {"NOISE LV"}, {""}, {"VCO 2"},
-        {"VCO DEC"},  {""}, {"VELOCITY"},
-        {"1-2 FAMT"}, {""}, {"PITCH"}
+        { kPatchMeta[PP_VCA_CV].name },    { "" }, { kPatchMeta[PP_VCA_EG].name },
+        { kPatchMeta[PP_VCA_DECAY].name }, { "" }, { kPatchMeta[PP_VCF_EG].name },
+        { kPatchMeta[PP_VCF_MOD].name },   { "" }, { kPatchMeta[PP_VCO_EG].name },
+        { kPatchMeta[PP_VCF_DECAY].name }, { "" }, { kPatchMeta[PP_VCO1].name },
+        { kPatchMeta[PP_NOISE_LVL].name }, { "" }, { kPatchMeta[PP_VCO2].name },
+        { kPatchMeta[PP_VCO_DECAY].name }, { "" }, { kPatchMeta[PP_VELOCITY].name },
+        { kPatchMeta[PP_FM_AMT].name },    { "" }, { kPatchMeta[PP_PITCH].name }
     };
 
     const int col1 = x + 32;

@@ -65,9 +65,95 @@ DFAFProcessor::DFAFProcessor()
     : AudioProcessor(BusesProperties()
         .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "DFAF", createParameterLayout())
-{}
+{
+    initialiseMidiCcBindings();
+}
 
 DFAFProcessor::~DFAFProcessor() {}
+
+void DFAFProcessor::initialiseMidiCcBindings()
+{
+    struct MidiCcRouteDef
+    {
+        int cc;
+        const char* parameterId;
+    };
+
+    constexpr std::array<MidiCcRouteDef, kNumMidiCcBindings> ccRouteDefs {{
+        { 20, "vcoDecay"    },
+        { 21, "vco1EgAmt"   },
+        { 22, "vco1Freq"    },
+        { 23, "vco1Level"   },
+        { 24, "noiseLevel"  },
+        { 25, "cutoff"      },
+        { 26, "resonance"   },
+        { 27, "vcaEg"       },
+        { 28, "volume"      },
+        { 29, "fmAmount"    },
+        { 30, "vco2EgAmt"   },
+        { 31, "vco2Freq"    },
+        { 32, "vco2Level"   },
+        { 33, "vcfDecay"    },
+        { 34, "vcfEgAmt"    },
+        { 35, "noiseVcfMod" },
+        { 36, "vcaDecay"    },
+        { 37, "stepPitch0"  },
+        { 38, "stepPitch1"  },
+        { 39, "stepPitch2"  },
+        { 40, "stepPitch3"  },
+        { 41, "stepPitch4"  },
+        { 42, "stepPitch5"  },
+        { 43, "stepPitch6"  },
+        { 44, "stepPitch7"  },
+        { 45, "stepVel0"    },
+        { 46, "stepVel1"    },
+        { 47, "stepVel2"    },
+        { 48, "stepVel3"    },
+        { 49, "stepVel4"    },
+        { 50, "stepVel5"    },
+        { 51, "stepVel6"    },
+        { 52, "stepVel7"    },
+        { 53, "seqPitchMod" },
+        { 54, "hardSync"    },
+        { 55, "vco1Wave"    },
+        { 56, "vco2Wave"    },
+        { 57, "vcfMode"     },
+        { 58, "clockMult"   }
+    }};
+
+    for (size_t i = 0; i < ccRouteDefs.size(); ++i)
+    {
+        midiCcBindings[i].cc = ccRouteDefs[i].cc;
+        midiCcBindings[i].parameter =
+            dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter(ccRouteDefs[i].parameterId));
+        jassert(midiCcBindings[i].parameter != nullptr);
+    }
+}
+
+void DFAFProcessor::applyMidiCc(int ccNumber, int ccValue)
+{
+    const float normalisedCc = juce::jlimit(0.0f, 1.0f, (float)ccValue / 127.0f);
+
+    for (const auto& binding : midiCcBindings)
+    {
+        if (binding.cc != ccNumber || binding.parameter == nullptr)
+            continue;
+
+        if (dynamic_cast<juce::AudioParameterChoice*>(binding.parameter) != nullptr
+            || dynamic_cast<juce::AudioParameterBool*>(binding.parameter) != nullptr)
+        {
+            const int numSteps = juce::jmax(2, binding.parameter->getNumSteps());
+            const int stepIndex = juce::jlimit(0, numSteps - 1,
+                (int)std::round(normalisedCc * (float)(numSteps - 1)));
+            const float quantisedValue = (float)stepIndex / (float)(numSteps - 1);
+            binding.parameter->setValueNotifyingHost(quantisedValue);
+            return;
+        }
+
+        binding.parameter->setValueNotifyingHost(normalisedCc);
+        return;
+    }
+}
 
 void DFAFProcessor::prepareToPlay(double sampleRate, int)
 {
@@ -157,7 +243,13 @@ void DFAFProcessor::getCableSnapshot(std::vector<PatchCable>& out) const
 void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     buffer.clear();
-    juce::ignoreUnused(midiMessages);
+
+    for (const auto metadata : midiMessages)
+    {
+        const auto& message = metadata.getMessage();
+        if (message.isController())
+            applyMidiCc(message.getControllerNumber(), message.getControllerValue());
+    }
 
     float bpm = 120.0f;
         bool isPlaying = false;

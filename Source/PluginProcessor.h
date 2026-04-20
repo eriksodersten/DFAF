@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include <array>
 #include "DecayEnvelope.h"
 #include "DFAFSequencer.h"
 #include "DFAFVoice.h"
@@ -132,6 +133,16 @@ public:
     void getCableSnapshot  (std::vector<PatchCable>& out) const;
 
 private:
+    struct MidiCcBinding
+    {
+        int cc = -1;
+        juce::RangedAudioParameter* parameter = nullptr;
+    };
+
+    static constexpr size_t kNumMidiCcBindings = 39;
+    void initialiseMidiCcBindings();
+    void applyMidiCc(int ccNumber, int ccValue);
+
     // -------------------------------------------------------------------------
     // Lock-free patch storage (seqlock)
     //   cableSeq even  → store is stable, safe to read
@@ -145,6 +156,7 @@ private:
     CableStore                    cableStore;
     std::atomic<uint32_t>         cableSeq { 0 };
     mutable juce::CriticalSection cableWriteLock;   // message-thread writers only
+    std::array<MidiCcBinding, kNumMidiCcBindings> midiCcBindings {};
 
     float patchSourceValues[PP_NUM_POINTS] = {};  // written each sample (audio thread)
     float patchInputSums   [PP_NUM_POINTS] = {};  // accumulated each sample (audio thread)

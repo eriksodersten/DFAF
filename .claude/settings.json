@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 120,
+            "statusMessage": "Bygger och deployer DFAF...",
+            "command": "FILE=$(jq -r '.tool_input.file_path'); if echo \"$FILE\" | grep -q '/DFAF/'; then /usr/local/bin/cmake --build /Users/eriksode/Projects/DFAF/build 2>&1 | tail -3 && cp -r /Users/eriksode/Projects/DFAF/build/DFAF_artefacts/Debug/AU/DFAF.component ~/Library/Audio/Plug-Ins/Components/ && echo '✓ DFAF deployed'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

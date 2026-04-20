@@ -19,6 +19,7 @@ enum PatchPoint
     PP_VELOCITY  = 4,   // OUT – step velocity, held until next trigger (0–1)
     PP_VCO_EG    = 5,   // OUT – smoothed VCO envelope (0..1)
     PP_VCF_DECAY = 6,   // IN  – modulates VCF decay in normalised parameter domain
+    PP_VCA_DECAY = 7,   // IN  – modulates VCA decay in normalised parameter domain
     PP_NUM_POINTS
 };
 
@@ -41,7 +42,8 @@ inline const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
     { "VCA CV",   PD_In,  false },   // PP_VCA_CV   – additive VCA gain CV (0..1)
     { "VELOCITY",  PD_Out, false },   // PP_VELOCITY  – step velocity, held 0..1
     { "VCO EG",   PD_Out, false },   // PP_VCO_EG   – smoothed VCO envelope 0..1
-    { "VCF DECAY",PD_In,  true  },   // PP_VCF_DECAY – bipolar, normalised param-domain replacement
+    { "VCF DECAY",PD_In,  true  },   // PP_VCF_DECAY – bipolar, normalised param-domain additive
+    { "VCA DECAY",PD_In,  true  },   // PP_VCA_DECAY – bipolar, normalised param-domain additive
 };
 
 /** One active cable between a source and a destination. */
@@ -99,6 +101,7 @@ public:
         MoogLadderFilter filter;
         float currentVelocity    = 0.0f;   // held from last trigger, used as patch source
         juce::RangedAudioParameter* vcfDecayParam = nullptr;  // cached for normalised-domain mod
+    juce::RangedAudioParameter* vcaDecayParam = nullptr;  // cached for normalised-domain mod
         float smoothedNoiseMod  = 0.0f;
         float noiseModHpState   = 0.0f;
         float noiseModCoeff     = 0.028f;   // LP för noise->VCF textur

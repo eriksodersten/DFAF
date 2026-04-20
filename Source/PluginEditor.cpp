@@ -132,6 +132,7 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
     // ioRows layout (6 rows × 3 cols):  col1=IN  col2=IN  col3=OUT
     // r=0 col2 → VCA CV     (PP_VCA_CV)
     // r=1 col1 → VELOCITY   (PP_VELOCITY)
+    // r=1 col2 → VCA DEC    (PP_VCA_DECAY)
     // r=1 col3 → VCA EG     (PP_VCA_EG)
     // r=2 col2 → VCF DEC    (PP_VCF_DECAY)
     // r=2 col3 → VCF EG     (PP_VCF_EG)
@@ -146,6 +147,7 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
         case PP_VELOCITY:  return { col1, startY + 1 * stride };
         case PP_VCO_EG:    return { col3, startY + 3 * stride };
         case PP_VCF_DECAY: return { col2, startY + 2 * stride };
+        case PP_VCA_DECAY: return { col2, startY + 1 * stride };
         default:           return { -1, -1 };
     }
 }

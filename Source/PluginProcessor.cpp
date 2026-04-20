@@ -84,6 +84,7 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     for (int p = 0; p < PP_NUM_POINTS; ++p)
         patchSourceValues[p] = patchInputSums[p] = 0.0f;
     vcfDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcfDecay"));
+    vcaDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcaDecay"));
     smoothedCutoff.reset(sampleRate, 0.01);
     smoothedVolume.reset(sampleRate, 0.01);
     smoothedVco1Level.reset(sampleRate, 0.01);
@@ -244,11 +245,13 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     // Pre-compute which destinations have active cables (used in DSP below)
     bool hasVcfModCable   = false;
     bool hasVcfDecayCable = false;
+    bool hasVcaDecayCable = false;
     for (int c = 0; c < nCables; ++c)
     {
         if (!cableSnap.data[c].enabled) continue;
         if (cableSnap.data[c].dst == PP_VCF_MOD)   hasVcfModCable   = true;
         if (cableSnap.data[c].dst == PP_VCF_DECAY)  hasVcfDecayCable = true;
+        if (cableSnap.data[c].dst == PP_VCA_DECAY)  hasVcaDecayCable = true;
     }
 
     auto* left  = buffer.getWritePointer(0);
@@ -322,6 +325,22 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         else
         {
             voice.setVcfDecayTime(vcfDecayVal);
+        }
+
+        // VCA decay: same additive normalised-domain model as VCF decay
+        if (vcaDecayParam != nullptr)
+        {
+            float norm = vcaDecayParam->convertTo0to1(vcaDecayVal);
+            if (hasVcaDecayCable)
+            {
+                constexpr float vcaDecayCvScale = 0.35f;
+                norm = juce::jlimit(0.0f, 1.0f, norm + patchInputSums[PP_VCA_DECAY] * vcaDecayCvScale);
+            }
+            voice.setVcaDecayTime(vcaDecayParam->convertFrom0to1(norm));
+        }
+        else
+        {
+            voice.setVcaDecayTime(vcaDecayVal);
         }
 
         smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;

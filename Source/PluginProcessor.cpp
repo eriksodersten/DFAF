@@ -282,7 +282,9 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 sequencer.setCurrentStep(currentStep);
                 const auto& step = sequencer.getStep(currentStep);
                 currentVelocity = step.velocity;
+                currentPitch    = (step.pitch - 60.0f) / 60.0f;
                 patchSourceValues[PP_VELOCITY] = currentVelocity;
+                patchSourceValues[PP_PITCH]    = currentPitch;
                 voice.trigger(step.pitch, step.velocity);
             }
         }
@@ -308,6 +310,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         patchSourceValues[PP_VCF_EG]   = frame.vcfEnv;
         patchSourceValues[PP_VCA_EG]   = frame.ampGain;
         patchSourceValues[PP_VELOCITY] = currentVelocity;
+        patchSourceValues[PP_PITCH]    = currentPitch;
         patchSourceValues[PP_VCO_EG]   = frame.vcoEnv;
         patchSourceValues[PP_VCO1]     = frame.vco1Raw;
         patchSourceValues[PP_VCO2]     = frame.vco2Raw;

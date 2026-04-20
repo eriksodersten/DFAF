@@ -25,6 +25,7 @@ enum PatchPoint
     PP_VCO2      = 10,  // OUT – pre-level VCO2 output (-1..1)
     PP_FM_AMT    = 11,  // IN  – additive FM amount CV (bipolar, 0..1 domain)
     PP_NOISE_LVL = 12,  // IN  – additive noise level CV (bipolar, 0..1 domain)
+    PP_PITCH     = 13,  // OUT – step pitch, normalised bipolar (note-60)/60
     PP_NUM_POINTS
 };
 
@@ -54,6 +55,7 @@ inline const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
     { "VCO 2",   PD_Out, true  },   // PP_VCO2      – pre-level VCO2 (-1..1)
     { "FM AMT",  PD_In,  true  },   // PP_FM_AMT    – additive FM amount CV
     { "NOISE LV",PD_In,  true  },   // PP_NOISE_LVL – additive noise level CV
+    { "PITCH",   PD_Out, true  },   // PP_PITCH     – step pitch bipolar (note-60)/60
 };
 
 /** One active cable between a source and a destination. */
@@ -110,6 +112,7 @@ public:
     DFAFVoice       voice;
         MoogLadderFilter filter;
         float currentVelocity    = 0.0f;   // held from last trigger, used as patch source
+        float currentPitch       = 0.0f;   // held from last trigger, normalised bipolar
         juce::RangedAudioParameter* vcfDecayParam = nullptr;  // cached for normalised-domain mod
     juce::RangedAudioParameter* vcaDecayParam = nullptr;  // cached for normalised-domain mod
     juce::RangedAudioParameter* vcoDecayParam = nullptr;  // cached for normalised-domain mod

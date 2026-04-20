@@ -129,33 +129,23 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
     const int startY = py + 34;
     const int stride = 36;
 
-    // ioRows layout (6 rows × 3 cols):  col1=IN  col2=IN  col3=OUT
-    // r=0 col2 → VCA CV     (PP_VCA_CV)
-    // r=1 col1 → VELOCITY   (PP_VELOCITY)
-    // r=1 col2 → VCA DEC    (PP_VCA_DECAY)
-    // r=1 col3 → VCA EG     (PP_VCA_EG)
-    // r=2 col2 → VCF DEC    (PP_VCF_DECAY)
-    // r=2 col3 → VCF EG     (PP_VCF_EG)
-    // r=3 col2 → VCO DEC    (PP_VCO_DECAY)
-    // r=3 col3 → VCO EG     (PP_VCO_EG)
-    // r=4 col1 → VCF MOD    (PP_VCF_MOD)
-    // r=4 col3 → VCO 1      (PP_VCO1)
-    // r=5 col3 → VCO 2      (PP_VCO2)
+    // col1=IN (r0-6), col3=OUT (r0-6)
     switch (pp)
     {
-        case PP_VCF_EG:    return { col3, startY + 2 * stride };
-        case PP_VCF_MOD:   return { col1, startY + 4 * stride };
-        case PP_VCA_EG:    return { col3, startY + 1 * stride };
-        case PP_VCA_CV:    return { col2, startY + 0 * stride };
-        case PP_VELOCITY:  return { col1, startY + 1 * stride };
-        case PP_VCO_EG:    return { col3, startY + 3 * stride };
-        case PP_VCF_DECAY: return { col2, startY + 2 * stride };
-        case PP_VCA_DECAY: return { col2, startY + 1 * stride };
-        case PP_VCO_DECAY: return { col2, startY + 3 * stride };
-        case PP_VCO1:      return { col3, startY + 4 * stride };
-        case PP_VCO2:      return { col3, startY + 5 * stride };
-        case PP_FM_AMT:    return { col1, startY + 5 * stride };
-        case PP_NOISE_LVL: return { col1, startY + 3 * stride };
+        case PP_VCA_CV:    return { col1, startY + 0 * stride };
+        case PP_VCA_DECAY: return { col1, startY + 1 * stride };
+        case PP_VCF_MOD:   return { col1, startY + 2 * stride };
+        case PP_VCF_DECAY: return { col1, startY + 3 * stride };
+        case PP_NOISE_LVL: return { col1, startY + 4 * stride };
+        case PP_VCO_DECAY: return { col1, startY + 5 * stride };
+        case PP_FM_AMT:    return { col1, startY + 6 * stride };
+        case PP_VCA_EG:    return { col3, startY + 0 * stride };
+        case PP_VCF_EG:    return { col3, startY + 1 * stride };
+        case PP_VCO_EG:    return { col3, startY + 2 * stride };
+        case PP_VCO1:      return { col3, startY + 3 * stride };
+        case PP_VCO2:      return { col3, startY + 4 * stride };
+        case PP_VELOCITY:  return { col3, startY + 5 * stride };
+        case PP_PITCH:     return { col3, startY + 6 * stride };
         default:           return { -1, -1 };
     }
 }
@@ -291,6 +281,7 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
 
     auto drawJack = [&](int jx, int jy, const juce::String& lbl)
     {
+        if (lbl.isEmpty()) return;
         g.setColour(juce::Colour(0xff333333));
         g.fillEllipse((float)(jx - 10), (float)(jy - 10), 20.0f, 20.0f);
 
@@ -307,17 +298,15 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
 
     struct JackDef { const char* label; };
 
+    // col1 = all INs, col2 = empty, col3 = all OUTs
     JackDef ioRows[] = {
-        {"TRIGGER"},  {"VCA CV"},  {"VCA"},
-        {"VELOCITY"}, {"VCA DEC"}, {"VCA EG"},
-        {"EXT AUD"},  {"VCF DEC"}, {"VCF EG"},
-        {"NOISE LV"}, {"VCO DEC"}, {"VCO EG"},
-        {"VCF MOD"},  {"VCO1 CV"}, {"VCO 1"},
-        {"1-2 FAMT"}, {"VCO2 CV"}, {"VCO 2"}
-    };
-
-    JackDef outRow[] = {
-        {"TRIGGER"}, {"VELOCTY"}, {"PITCH"}
+        {"VCA CV"},   {""}, {"VCA EG"},
+        {"VCA DEC"},  {""}, {"VCF EG"},
+        {"VCF MOD"},  {""}, {"VCO EG"},
+        {"VCF DEC"},  {""}, {"VCO 1"},
+        {"NOISE LV"}, {""}, {"VCO 2"},
+        {"VCO DEC"},  {""}, {"VELOCITY"},
+        {"1-2 FAMT"}, {""}, {"PITCH"}
     };
 
     const int col1 = x + 32;
@@ -331,42 +320,19 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
     g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
 
     g.drawText("IN",  col1 - 18, y + 5, 36, 11, juce::Justification::centred);
-    g.drawText("IN",  col2 - 18, y + 5, 36, 11, juce::Justification::centred);
     g.drawText("OUT", col3 - 20, y + 5, 40, 11, juce::Justification::centred);
 
     g.setColour(juce::Colour(0xffc7c3bd));
     g.drawLine((float)(x + 4), (float)(y + 19), (float)(x + w - 4), (float)(y + 19), 1.0f);
 
-    for (int r = 0; r < 6; ++r)
+    for (int r = 0; r < 7; ++r)
     {
         const int idx = r * 3;
         const int jy = startY + r * stride;
 
         drawJack(col1, jy, ioRows[idx].label);
-        drawJack(col2, jy, ioRows[idx + 1].label);
         drawJack(col3, jy, ioRows[idx + 2].label);
     }
-
-    // Linje efter sista IN/OUT-raden (under label-texten på rad 5)
-    const int line1Y = startY + 5 * stride + 26;
-    g.setColour(juce::Colour(0xffc7c3bd));
-    g.drawLine((float)(x + 4), (float)line1Y, (float)(x + w - 4), (float)line1Y, 1.0f);
-
-    // OUT-rubrik centrerad mellan linje och OUT-jacks
-    g.setColour(labelBlack);
-    g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
-    g.drawText("OUT", x, line1Y + 4, w, 11, juce::Justification::centred);
-
-    // Linje under OUT-rubriken, ovanför jack-kroppar
-    const int line2Y = line1Y + 18;
-    g.setColour(juce::Colour(0xffc7c3bd));
-    g.drawLine((float)(x + 4), (float)line2Y, (float)(x + w - 4), (float)line2Y, 1.0f);
-
-    // OUT-jacks: centrum minst 14px under line2 (jack-topp vid outY-10 > line2Y)
-    const int outY = line2Y + 24;
-    drawJack(col1, outY, outRow[0].label);
-    drawJack(col2, outY, outRow[1].label);
-    drawJack(col3, outY, outRow[2].label);
 
     // --- Patch overlay ----------------------------------------------------
     // Active cables: draw line + green ring on destination
@@ -386,25 +352,14 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
         g.drawEllipse((float)(dst.x - 12), (float)(dst.y - 12), 24.0f, 24.0f, 1.5f);
     }
 
-    // Selected OUT jack: yellow ring + highlight all available IN jacks in green
+    // Selected OUT jack: yellow ring only
     if (selectedOut != PP_NUM_POINTS)
     {
-        // Yellow ring on the selected OUT
         auto c = getJackCentre(selectedOut);
         if (c.x >= 0)
         {
             g.setColour(juce::Colour(0xffffcc00));
             g.drawEllipse((float)(c.x - 12), (float)(c.y - 12), 24.0f, 24.0f, 2.0f);
-        }
-
-        // Green ring on every available IN jack
-        for (int p = 0; p < PP_NUM_POINTS; ++p)
-        {
-            if (kPatchMeta[p].dir != PD_In) continue;
-            auto in = getJackCentre(static_cast<PatchPoint>(p));
-            if (in.x < 0) continue;
-            g.setColour(juce::Colour(0xff44ee66));
-            g.drawEllipse((float)(in.x - 12), (float)(in.y - 12), 24.0f, 24.0f, 1.5f);
         }
     }
     // ----------------------------------------------------------------------
@@ -472,7 +427,7 @@ void DFAFEditor::paint(juce::Graphics& g)
     // Row 1 labels
     const char* top[] = {
             "VCO DECAY","SEQ PITCH MOD","VCO 1 EG AMT","VCO 1 FREQ",
-            "VCO 1 WAVE","VCO 1 LEVEL","NOISE/EXT LVL","CUTOFF","RESONANCE","VCA EG AMT","VOLUME"
+            "VCO 1 WAVE","VCO 1 LEVEL","NOISE LVL","CUTOFF","RESONANCE","VCA EG AMT","VOLUME"
         };
     for (int i = 0; i < 11; ++i)
         g.drawText(top[i], offX + i * kS, 8, kS, 10, juce::Justification::centred);
@@ -486,13 +441,13 @@ void DFAFEditor::paint(juce::Graphics& g)
         g.drawText(bot[i], offX + i * kS, 167, kS, 10, juce::Justification::centred);
 
     // Sequencer labels
-    g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
-    g.drawText("TEMPO",    wood+30, 314, 90, 10, juce::Justification::centred);
-    g.drawText("PITCH",    wood+30, 335, 90, 10, juce::Justification::centred);
-    g.drawText("VELOCITY", wood+30, 445, 90, 10, juce::Justification::centred);
-
     const int seqX  = wood + 140;
     const int stepW = (W - wood - jackW - seqX) / 8;
+    const int firstKnobX = seqX + (stepW - 30) / 2;   // sSz=30
+    g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
+    g.drawText("SCALE",    wood+30, 314, 90, 10, juce::Justification::centred);
+    g.drawText("PITCH",    wood+30, 333, firstKnobX - (wood+30) - 5, 10, juce::Justification::centredRight);
+    g.drawText("VELOCITY", wood+30, 445, firstKnobX - (wood+30) - 5, 10, juce::Justification::centredRight);
     for (int i = 0; i < 8; ++i)
         g.drawText(juce::String(i+1), seqX + i*stepW, 314, stepW, 10, juce::Justification::centred);
 
@@ -536,22 +491,13 @@ void DFAFEditor::paint(juce::Graphics& g)
         }
 
     // Branding
-    g.setFont(juce::FontOptions(22.0f).withStyle("Bold"));
     g.setColour(labelBlack);
-    g.drawText("DFAF", wood+20, H-48, 80, 28, juce::Justification::centredLeft);
+    g.setFont(juce::FontOptions(30.0f).withStyle("Bold"));
+    g.drawText("DFAF", W-wood-jackW-20, H-56, 200, 32, juce::Justification::centredRight);
     g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
-    g.drawText("DRUMMER FROM",   wood+104, H-48, 120, 14, juce::Justification::centredLeft);
-    g.drawText("ANOTHER FATHER", wood+104, H-34, 120, 14, juce::Justification::centredLeft);
-    g.setColour(juce::Colour(0xffaaaaaa));
-    g.drawLine((float)(wood+100), (float)(H-50), (float)(wood+100), (float)(H-18), 0.8f);
-    g.setColour(labelBlack);
+    g.drawText("DRUMMER FROM ANOTHER FATHER", W-wood-jackW-20, H-24, 200, 11, juce::Justification::centredRight);
     g.setFont(juce::FontOptions(7.5f));
-    g.drawText("SEMI-MODULAR ANALOG",    wood+228, H-48, 160, 14, juce::Justification::centredLeft);
-    g.drawText("PERCUSSION SYNTHESIZER", wood+228, H-34, 160, 14, juce::Justification::centredLeft);
-    g.setFont(juce::FontOptions(30.0f).withStyle("Italic"));
-    g.drawText("fjord", W-wood-jackW-20, H-52, 138, 36, juce::Justification::centredRight);
-    g.setFont(juce::FontOptions(12.0f));
-    g.drawText("\xc2\xae", W-wood-jackW+116, H-44, 16, 16, juce::Justification::centredLeft);
+    g.drawText("SEMI-MODULAR PERCUSSION VST SYNTHESIZER", W-wood-jackW-20, H-13, 200, 11, juce::Justification::centredRight);
 }
 
 void DFAFEditor::resized()

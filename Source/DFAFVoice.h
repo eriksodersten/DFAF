@@ -92,12 +92,13 @@ public:
             const float currentFreq1  = smoothedFreq1.getNextValue();
             const float currentFreq2  = smoothedFreq2.getNextValue();
             const float currentFm     = smoothedFm.getNextValue();
-            const float oscSampleRate = (float)sr * 2.0f;
+            const int   oversampleFactor = 8;
+            const float oscSampleRate = (float)sr * (float)oversampleFactor;
 
             float toneSum = 0.0f;
             float lastVco1out = 0.0f, lastVco2out = 0.0f;
 
-            for (int os = 0; os < 2; ++os)
+            for (int os = 0; os < oversampleFactor; ++os)
             {
                 const float modFreq1 = currentFreq1 * std::pow(2.0f, vco1EgAmt * vcoEnv * vel / 12.0f);
                 const float inst1    = modFreq1 / oscSampleRate * phaseDir1;
@@ -153,7 +154,7 @@ public:
 
             float noise   = random.nextFloat() * 2.0f - 1.0f;
             float toneAmp = vcoEnv;
-            float tone    = 0.5f * toneSum;
+            float tone    = toneSum / (float)oversampleFactor;
             f.raw      = tone * toneAmp + noise * noiseLevel;
             f.vcfEnv   = lastVcfEnv * vel;
             f.noiseRaw = noise;

@@ -20,6 +20,11 @@ enum PatchPoint
     PP_VCO_EG    = 5,   // OUT – smoothed VCO envelope (0..1)
     PP_VCF_DECAY = 6,   // IN  – modulates VCF decay in normalised parameter domain
     PP_VCA_DECAY = 7,   // IN  – modulates VCA decay in normalised parameter domain
+    PP_VCO_DECAY = 8,   // IN  – modulates VCO decay in normalised parameter domain
+    PP_VCO1      = 9,   // OUT – pre-level VCO1 output (-1..1)
+    PP_VCO2      = 10,  // OUT – pre-level VCO2 output (-1..1)
+    PP_FM_AMT    = 11,  // IN  – additive FM amount CV (bipolar, 0..1 domain)
+    PP_NOISE_LVL = 12,  // IN  – additive noise level CV (bipolar, 0..1 domain)
     PP_NUM_POINTS
 };
 
@@ -44,6 +49,11 @@ inline const PatchPointMeta kPatchMeta[PP_NUM_POINTS] =
     { "VCO EG",   PD_Out, false },   // PP_VCO_EG   – smoothed VCO envelope 0..1
     { "VCF DECAY",PD_In,  true  },   // PP_VCF_DECAY – bipolar, normalised param-domain additive
     { "VCA DECAY",PD_In,  true  },   // PP_VCA_DECAY – bipolar, normalised param-domain additive
+    { "VCO DECAY",PD_In,  true  },   // PP_VCO_DECAY – bipolar, normalised param-domain additive
+    { "VCO 1",   PD_Out, true  },   // PP_VCO1      – pre-level VCO1 (-1..1)
+    { "VCO 2",   PD_Out, true  },   // PP_VCO2      – pre-level VCO2 (-1..1)
+    { "FM AMT",  PD_In,  true  },   // PP_FM_AMT    – additive FM amount CV
+    { "NOISE LV",PD_In,  true  },   // PP_NOISE_LVL – additive noise level CV
 };
 
 /** One active cable between a source and a destination. */
@@ -102,6 +112,7 @@ public:
         float currentVelocity    = 0.0f;   // held from last trigger, used as patch source
         juce::RangedAudioParameter* vcfDecayParam = nullptr;  // cached for normalised-domain mod
     juce::RangedAudioParameter* vcaDecayParam = nullptr;  // cached for normalised-domain mod
+    juce::RangedAudioParameter* vcoDecayParam = nullptr;  // cached for normalised-domain mod
         float smoothedNoiseMod  = 0.0f;
         float noiseModHpState   = 0.0f;
         float noiseModCoeff     = 0.028f;   // LP för noise->VCF textur

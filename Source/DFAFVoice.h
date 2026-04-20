@@ -65,6 +65,8 @@ public:
         float vcfEnv  = 0.0f;
         float vcoEnv  = 0.0f;   // smoothed VCO envelope (0..1)
         float noiseRaw = 0.0f;
+        float vco1Raw  = 0.0f;  // pre-level VCO1 output (-1..1)
+        float vco2Raw  = 0.0f;  // pre-level VCO2 output (-1..1)
     };
 
     Frame processFrame()
@@ -93,6 +95,7 @@ public:
             const float oscSampleRate = (float)sr * 2.0f;
 
             float toneSum = 0.0f;
+            float lastVco1out = 0.0f, lastVco2out = 0.0f;
 
             for (int os = 0; os < 2; ++os)
             {
@@ -141,7 +144,12 @@ public:
                 }
 
                 toneSum += vco1out * vco1Level + vco2out * vco2Level;
+                lastVco1out = vco1out;
+                lastVco2out = vco2out;
             }
+
+            f.vco1Raw = lastVco1out;
+            f.vco2Raw = lastVco2out;
 
             float noise   = random.nextFloat() * 2.0f - 1.0f;
             float toneAmp = vcoEnv;

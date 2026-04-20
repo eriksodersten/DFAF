@@ -85,6 +85,7 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
         patchSourceValues[p] = patchInputSums[p] = 0.0f;
     vcfDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcfDecay"));
     vcaDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcaDecay"));
+    vcoDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcoDecay"));
     smoothedCutoff.reset(sampleRate, 0.01);
     smoothedVolume.reset(sampleRate, 0.01);
     smoothedVco1Level.reset(sampleRate, 0.01);
@@ -212,10 +213,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         }
 
         filter.setResonance(resVal);
-    voice.setDecayTime(vcoDecayVal);
-    voice.setVcaDecayTime(vcaDecayVal);
-    // VCF decay applied after cable snapshot (needs hasVcfDecayCable) – see below
-    voice.setFmAmount(fmVal);
+    // VCO/VCA/VCF decay and FM amount applied per-sample after cable snapshot – see below
     voice.setVco1BaseFreq(vco1Freq);
         voice.setVco2BaseFreq(vco2Freq);
     voice.setSeqPitchRouting(seqPitchRouting);
@@ -226,7 +224,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         voice.setVco1EgAmount(vco1EgAmt);
     voice.setVco2EgAmount(vco2EgAmt);
     voice.setVcfEgAmount(vcfEgAmt);
-    voice.setNoiseLevel(noiseLevelVal);
+    // noise level applied per-sample after cable snapshot – see below
     voice.setVcaEgAmount(vcaEgVal);
     voice.setVcaAttackTime(0.001f + vcaEgVal * 0.099f);
 
@@ -246,12 +244,18 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     bool hasVcfModCable   = false;
     bool hasVcfDecayCable = false;
     bool hasVcaDecayCable = false;
+    bool hasVcoDecayCable = false;
+    bool hasFmAmtCable    = false;
+    bool hasNoiseLvlCable = false;
     for (int c = 0; c < nCables; ++c)
     {
         if (!cableSnap.data[c].enabled) continue;
         if (cableSnap.data[c].dst == PP_VCF_MOD)   hasVcfModCable   = true;
         if (cableSnap.data[c].dst == PP_VCF_DECAY)  hasVcfDecayCable = true;
         if (cableSnap.data[c].dst == PP_VCA_DECAY)  hasVcaDecayCable = true;
+        if (cableSnap.data[c].dst == PP_VCO_DECAY)  hasVcoDecayCable = true;
+        if (cableSnap.data[c].dst == PP_FM_AMT)     hasFmAmtCable    = true;
+        if (cableSnap.data[c].dst == PP_NOISE_LVL)  hasNoiseLvlCable = true;
     }
 
     auto* left  = buffer.getWritePointer(0);
@@ -305,11 +309,23 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         patchSourceValues[PP_VCA_EG]   = frame.ampGain;
         patchSourceValues[PP_VELOCITY] = currentVelocity;
         patchSourceValues[PP_VCO_EG]   = frame.vcoEnv;
+        patchSourceValues[PP_VCO1]     = frame.vco1Raw;
+        patchSourceValues[PP_VCO2]     = frame.vco2Raw;
         for (int c = 0; c < nCables; ++c)
             if (cableSnap.data[c].enabled)
                 patchInputSums[cableSnap.data[c].dst] +=
                     patchSourceValues[cableSnap.data[c].src] * cableSnap.data[c].amount;
         // ------------------------------------------------------------
+
+        // FM amount: additive CV, clamped 0..1
+        voice.setFmAmount(hasFmAmtCable
+            ? juce::jlimit(0.0f, 1.0f, fmVal + patchInputSums[PP_FM_AMT])
+            : fmVal);
+
+        // Noise level: additive CV, clamped 0..1
+        voice.setNoiseLevel(hasNoiseLvlCable
+            ? juce::jlimit(0.0f, 1.0f, noiseLevelVal + patchInputSums[PP_NOISE_LVL])
+            : noiseLevelVal);
 
         // VCF decay: continuous CV from real patch sources in normalised parameter domain
         if (vcfDecayParam != nullptr)
@@ -341,6 +357,22 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         else
         {
             voice.setVcaDecayTime(vcaDecayVal);
+        }
+
+        // VCO decay: same additive normalised-domain model as VCF decay
+        if (vcoDecayParam != nullptr)
+        {
+            float norm = vcoDecayParam->convertTo0to1(vcoDecayVal);
+            if (hasVcoDecayCable)
+            {
+                constexpr float vcoDecayCvScale = 0.35f;
+                norm = juce::jlimit(0.0f, 1.0f, norm + patchInputSums[PP_VCO_DECAY] * vcoDecayCvScale);
+            }
+            voice.setDecayTime(vcoDecayParam->convertFrom0to1(norm));
+        }
+        else
+        {
+            voice.setDecayTime(vcoDecayVal);
         }
 
         smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;

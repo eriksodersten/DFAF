@@ -136,8 +136,11 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
     // r=1 col3 → VCA EG     (PP_VCA_EG)
     // r=2 col2 → VCF DEC    (PP_VCF_DECAY)
     // r=2 col3 → VCF EG     (PP_VCF_EG)
+    // r=3 col2 → VCO DEC    (PP_VCO_DECAY)
     // r=3 col3 → VCO EG     (PP_VCO_EG)
     // r=4 col1 → VCF MOD    (PP_VCF_MOD)
+    // r=4 col3 → VCO 1      (PP_VCO1)
+    // r=5 col3 → VCO 2      (PP_VCO2)
     switch (pp)
     {
         case PP_VCF_EG:    return { col3, startY + 2 * stride };
@@ -148,6 +151,11 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
         case PP_VCO_EG:    return { col3, startY + 3 * stride };
         case PP_VCF_DECAY: return { col2, startY + 2 * stride };
         case PP_VCA_DECAY: return { col2, startY + 1 * stride };
+        case PP_VCO_DECAY: return { col2, startY + 3 * stride };
+        case PP_VCO1:      return { col3, startY + 4 * stride };
+        case PP_VCO2:      return { col3, startY + 5 * stride };
+        case PP_FM_AMT:    return { col1, startY + 5 * stride };
+        case PP_NOISE_LVL: return { col1, startY + 3 * stride };
         default:           return { -1, -1 };
     }
 }

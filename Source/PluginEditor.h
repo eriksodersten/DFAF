@@ -88,6 +88,14 @@ private:
     DFAFProcessor& processor;
     DFAFLookAndFeel laf;
 
+    juce::ComboBox presetBox;
+    juce::TextButton presetSaveButton { "SAVE" };
+    juce::TextButton presetDeleteButton { "DELETE" };
+    juce::TextButton presetInitButton { "INIT" };
+    std::unique_ptr<juce::FileChooser> presetSaveChooser;
+    juce::String lastPresetName;
+    bool isUpdatingPresetBox = false;
+
     // Row 1
         juce::Slider vcoDecay, vco1EgAmount, vco1Frequency;
     juce::ComboBox seqPitchModBox;
@@ -108,7 +116,10 @@ private:
         juce::TextButton resetButton;
 
         void timerCallback() override;
-        void setupKnob(juce::Slider& slider, bool small = false);
+    void setupKnob(juce::Slider& slider, bool small = false);
+    void refreshPresetControls();
+    void promptSavePreset();
+    void updatePresetButtonState();
     void drawSwitch(juce::Graphics& g, float x, float y, float w, float h,
                     const juce::String& label, const juce::StringArray& options) const;
     void drawButton(juce::Graphics& g, float x, float y, float r,

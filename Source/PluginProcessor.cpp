@@ -1,6 +1,12 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+namespace
+{
+constexpr auto kInitPresetName = "Init";
+constexpr auto kPresetExtension = ".dfafpreset";
+constexpr auto kPresetNameAttribute = "currentPresetName";
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParameterLayout()
 {
@@ -67,9 +73,293 @@ DFAFProcessor::DFAFProcessor()
       apvts(*this, nullptr, "DFAF", createParameterLayout())
 {
     initialiseMidiCcBindings();
+    defaultState = apvts.copyState();
 }
 
 DFAFProcessor::~DFAFProcessor() {}
+
+juce::File DFAFProcessor::getPresetDirectory() const
+{
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+        .getChildFile("DFAF")
+        .getChildFile("Presets");
+}
+
+juce::File DFAFProcessor::getPresetFile(const juce::String& presetName) const
+{
+    return getPresetDirectory().getChildFile(sanitisePresetName(presetName) + kPresetExtension);
+}
+
+juce::String DFAFProcessor::sanitisePresetName(const juce::String& presetName) const
+{
+    juce::String safeName;
+
+    for (auto character : presetName.trim())
+    {
+        if (juce::CharacterFunctions::isLetterOrDigit(character)
+            || character == ' '
+            || character == '-'
+            || character == '_')
+        {
+            safeName << character;
+        }
+    }
+
+    return safeName.trim();
+}
+
+juce::StringArray DFAFProcessor::getAvailablePresetNames() const
+{
+    juce::StringArray names;
+    auto presetDirectory = getPresetDirectory();
+
+    if (! presetDirectory.isDirectory())
+        return names;
+
+    juce::Array<juce::File> presetFiles;
+    presetDirectory.findChildFiles(presetFiles, juce::File::findFiles, false, "*" + juce::String(kPresetExtension));
+
+    for (const auto& presetFile : presetFiles)
+        names.addIfNotAlreadyThere(presetFile.getFileNameWithoutExtension());
+
+    names.sort(true);
+    return names;
+}
+
+juce::String DFAFProcessor::getCurrentPresetName() const
+{
+    const juce::ScopedLock sl(presetLock);
+    return currentPresetName;
+}
+
+std::unique_ptr<juce::XmlElement> DFAFProcessor::createStateXml()
+{
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml(state.createXml());
+
+    {
+        const juce::ScopedLock sl(presetLock);
+        xml->setAttribute(kPresetNameAttribute, currentPresetName);
+    }
+
+    auto* cablesXml = xml->createNewChildElement("PatchCables");
+    {
+        const juce::ScopedLock sl(cableWriteLock);
+        for (int i = 0; i < cableStore.count; ++i)
+        {
+            const auto& c = cableStore.data[i];
+            auto* el = cablesXml->createNewChildElement("Cable");
+            el->setAttribute("src",     (int)c.src);
+            el->setAttribute("dst",     (int)c.dst);
+            el->setAttribute("amount",  c.amount);
+            el->setAttribute("enabled", c.enabled ? 1 : 0);
+        }
+    }
+
+    return xml;
+}
+
+void DFAFProcessor::restoreStateFromXml(const juce::XmlElement& xml, const juce::String& presetNameOverride)
+{
+    auto stateXml = std::make_unique<juce::XmlElement>(xml);
+
+    if (auto* cablesXml = stateXml->getChildByName("PatchCables"))
+        stateXml->removeChildElement(cablesXml, true);
+
+    if (stateXml->hasTagName(apvts.state.getType()))
+        apvts.replaceState(juce::ValueTree::fromXml(*stateXml));
+
+    CableStore next {};
+    if (auto* cablesXml = xml.getChildByName("PatchCables"))
+    {
+        for (auto* el : cablesXml->getChildIterator())
+        {
+            const int src = el->getIntAttribute("src", -1);
+            const int dst = el->getIntAttribute("dst", -1);
+            if (src < 0 || src >= PP_NUM_POINTS) continue;
+            if (dst < 0 || dst >= PP_NUM_POINTS) continue;
+            if (kPatchMeta[src].dir != PD_Out)   continue;
+            if (kPatchMeta[dst].dir != PD_In)    continue;
+            if (next.count >= kMaxCables)        break;
+
+            next.data[next.count++] = {
+                static_cast<PatchPoint>(src),
+                static_cast<PatchPoint>(dst),
+                (float)el->getDoubleAttribute("amount",  1.0),
+                el->getIntAttribute("enabled", 1) != 0
+            };
+        }
+    }
+
+    {
+        const juce::ScopedLock sl(cableWriteLock);
+        cableSeq.fetch_add(1, std::memory_order_release);
+        cableStore = next;
+        cableSeq.fetch_add(1, std::memory_order_release);
+    }
+
+    const auto restoredPresetName = presetNameOverride.isNotEmpty()
+        ? presetNameOverride
+        : xml.getStringAttribute(kPresetNameAttribute, kInitPresetName);
+
+    {
+        const juce::ScopedLock sl(presetLock);
+        currentPresetName = restoredPresetName;
+    }
+}
+
+bool DFAFProcessor::savePreset(const juce::String& presetName)
+{
+    const auto safeName = sanitisePresetName(presetName);
+    if (safeName.isEmpty())
+        return false;
+
+    auto presetDirectory = getPresetDirectory();
+    if (! presetDirectory.isDirectory() && ! presetDirectory.createDirectory())
+        return false;
+
+    auto xml = createStateXml();
+    xml->setAttribute(kPresetNameAttribute, safeName);
+
+    if (! getPresetFile(safeName).replaceWithText(xml->toString()))
+        return false;
+
+    {
+        const juce::ScopedLock sl(presetLock);
+        currentPresetName = safeName;
+    }
+
+    updateHostDisplay();
+    return true;
+}
+
+bool DFAFProcessor::saveCurrentPreset()
+{
+    const auto presetName = getCurrentPresetName();
+    if (presetName == kInitPresetName)
+        return false;
+
+    return savePreset(presetName);
+}
+
+bool DFAFProcessor::loadPreset(const juce::String& presetName)
+{
+    const auto safeName = sanitisePresetName(presetName);
+    if (safeName.isEmpty())
+        return false;
+
+    auto presetFile = getPresetFile(safeName);
+    if (! presetFile.existsAsFile())
+        return false;
+
+    auto xml = juce::XmlDocument::parse(presetFile);
+    if (xml == nullptr)
+        return false;
+
+    restoreStateFromXml(*xml, safeName);
+    updateHostDisplay();
+    return true;
+}
+
+bool DFAFProcessor::deletePreset(const juce::String& presetName)
+{
+    const auto safeName = sanitisePresetName(presetName);
+    if (safeName.isEmpty() || safeName == kInitPresetName)
+        return false;
+
+    auto presetFile = getPresetFile(safeName);
+    if (! presetFile.existsAsFile())
+        return false;
+
+    if (! presetFile.deleteFile())
+        return false;
+
+    if (getCurrentPresetName() == safeName)
+        loadInitPreset();
+
+    updateHostDisplay();
+    return true;
+}
+
+void DFAFProcessor::loadInitPreset()
+{
+    apvts.replaceState(defaultState.createCopy());
+    clearPatches();
+
+    {
+        const juce::ScopedLock sl(presetLock);
+        currentPresetName = kInitPresetName;
+    }
+
+    updateHostDisplay();
+}
+
+int DFAFProcessor::getNumPrograms()
+{
+    return getAvailablePresetNames().size() + 1;
+}
+
+int DFAFProcessor::getCurrentProgram()
+{
+    const auto currentPreset = getCurrentPresetName();
+    if (currentPreset == kInitPresetName)
+        return 0;
+
+    const auto presetNames = getAvailablePresetNames();
+    const int presetIndex = presetNames.indexOf(currentPreset);
+    return presetIndex >= 0 ? presetIndex + 1 : 0;
+}
+
+void DFAFProcessor::setCurrentProgram(int index)
+{
+    if (index <= 0)
+    {
+        loadInitPreset();
+        return;
+    }
+
+    const auto presetNames = getAvailablePresetNames();
+    if (juce::isPositiveAndBelow(index - 1, presetNames.size()))
+        loadPreset(presetNames[index - 1]);
+}
+
+const juce::String DFAFProcessor::getProgramName(int index)
+{
+    if (index == 0)
+        return kInitPresetName;
+
+    const auto presetNames = getAvailablePresetNames();
+    return juce::isPositiveAndBelow(index - 1, presetNames.size()) ? presetNames[index - 1]
+                                                                    : juce::String {};
+}
+
+void DFAFProcessor::changeProgramName(int index, const juce::String& newName)
+{
+    if (index <= 0)
+        return;
+
+    const auto presetNames = getAvailablePresetNames();
+    if (! juce::isPositiveAndBelow(index - 1, presetNames.size()))
+        return;
+
+    const auto oldName = presetNames[index - 1];
+    const auto safeNewName = sanitisePresetName(newName);
+    if (safeNewName.isEmpty() || safeNewName == oldName)
+        return;
+
+    auto oldFile = getPresetFile(oldName);
+    auto newFile = getPresetFile(safeNewName);
+    if (newFile.existsAsFile())
+        return;
+
+    if (oldFile.moveFileTo(newFile) && getCurrentPresetName() == oldName)
+    {
+        const juce::ScopedLock sl(presetLock);
+        currentPresetName = safeNewName;
+    }
+
+    updateHostDisplay();
+}
 
 void DFAFProcessor::initialiseMidiCcBindings()
 {
@@ -288,8 +578,6 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     float vco2EgAmt   = apvts.getRawParameterValue("vco2EgAmt")->load();
     float vcfEgAmt      = apvts.getRawParameterValue("vcfEgAmt")->load();
         float noiseVcfMod   = apvts.getRawParameterValue("noiseVcfMod")->load();    float noiseLevelVal = apvts.getRawParameterValue("noiseLevel")->load();
-    float vco1LevelVal  = apvts.getRawParameterValue("vco1Level")->load();
-        float vco2LevelVal  = apvts.getRawParameterValue("vco2Level")->load();
     float vcaEgVal      = apvts.getRawParameterValue("vcaEg")->load();
         float preTrimVal    = apvts.getRawParameterValue("preTrim")->load();
 
@@ -319,7 +607,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
     // Seqlock snapshot – audio thread never takes a lock.
     // Retries only if a message-thread write lands exactly during the copy (extremely rare).
     CableStore cableSnap;
-    uint32_t seq1, seq2;
+    uint32_t seq1, seq2 = 0;
     do {
         seq1 = cableSeq.load(std::memory_order_acquire);
         if (seq1 & 1u) continue;          // write in progress – retry
@@ -498,66 +786,17 @@ juce::AudioProcessorEditor* DFAFProcessor::createEditor()
 
 void DFAFProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml(state.createXml());
-
-    // Serialise patch cables as child elements
-    auto* cablesXml = xml->createNewChildElement("PatchCables");
-    {
-        const juce::ScopedLock sl(cableWriteLock);
-        for (int i = 0; i < cableStore.count; ++i)
-        {
-            const auto& c = cableStore.data[i];
-            auto* el = cablesXml->createNewChildElement("Cable");
-            el->setAttribute("src",     (int)c.src);
-            el->setAttribute("dst",     (int)c.dst);
-            el->setAttribute("amount",  c.amount);
-            el->setAttribute("enabled", c.enabled ? 1 : 0);
-        }
-    }
-
+    auto xml = createStateXml();
     copyXmlToBinary(*xml, destData);
 }
 
 void DFAFProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
-    if (!xml) return;
+    if (xml == nullptr)
+        return;
 
-    // Restore APVTS params (strip PatchCables child first so APVTS doesn't see it)
-    if (auto* cablesXml = xml->getChildByName("PatchCables"))
-        xml->removeChildElement(cablesXml, true);
-
-    if (xml->hasTagName(apvts.state.getType()))
-        apvts.replaceState(juce::ValueTree::fromXml(*xml));
-
-    // Restore cables – re-parse original XML (removeChildElement was non-owning)
-    std::unique_ptr<juce::XmlElement> xml2(getXmlFromBinary(data, sizeInBytes));
-    if (!xml2) return;
-    CableStore next{};
-    if (auto* cablesXml = xml2->getChildByName("PatchCables"))
-    {
-        for (auto* el : cablesXml->getChildIterator())
-        {
-            const int src = el->getIntAttribute("src", -1);
-            const int dst = el->getIntAttribute("dst", -1);
-            if (src < 0 || src >= PP_NUM_POINTS) continue;
-            if (dst < 0 || dst >= PP_NUM_POINTS) continue;
-            if (kPatchMeta[src].dir != PD_Out)   continue;
-            if (kPatchMeta[dst].dir != PD_In)    continue;
-            if (next.count >= kMaxCables)        break;
-            next.data[next.count++] = {
-                static_cast<PatchPoint>(src),
-                static_cast<PatchPoint>(dst),
-                (float)el->getDoubleAttribute("amount",  1.0),
-                el->getIntAttribute("enabled", 1) != 0
-            };
-        }
-    }
-    const juce::ScopedLock sl(cableWriteLock);
-    cableSeq.fetch_add(1, std::memory_order_release);
-    cableStore = next;
-    cableSeq.fetch_add(1, std::memory_order_release);
+    restoreStateFromXml(*xml, {});
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

@@ -88,17 +88,25 @@ public:
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram(int) override {}
-    const juce::String getProgramName(int) override { return {}; }
-    void changeProgramName(int, const juce::String&) override {}
+    int getNumPrograms() override;
+    int getCurrentProgram() override;
+    void setCurrentProgram(int) override;
+    const juce::String getProgramName(int) override;
+    void changeProgramName(int, const juce::String&) override;
 
     void getStateInformation(juce::MemoryBlock& destData) override;
-        void setStateInformation(const void* data, int sizeInBytes) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
-        static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
+    juce::StringArray getAvailablePresetNames() const;
+    juce::String getCurrentPresetName() const;
+    bool savePreset(const juce::String& presetName);
+    bool saveCurrentPreset();
+    bool loadPreset(const juce::String& presetName);
+    bool deletePreset(const juce::String& presetName);
+    void loadInitPreset();
 
     int getCurrentStep() const { return sequencer.getCurrentStep(); }
     void resetSequencer() { sequencerResetPending.store(true, std::memory_order_release); }
@@ -139,6 +147,12 @@ private:
         juce::RangedAudioParameter* parameter = nullptr;
     };
 
+    juce::File getPresetDirectory() const;
+    juce::File getPresetFile(const juce::String& presetName) const;
+    juce::String sanitisePresetName(const juce::String& presetName) const;
+    std::unique_ptr<juce::XmlElement> createStateXml();
+    void restoreStateFromXml(const juce::XmlElement& xml, const juce::String& presetNameOverride);
+
     static constexpr size_t kNumMidiCcBindings = 39;
     void initialiseMidiCcBindings();
     void applyMidiCc(int ccNumber, int ccValue);
@@ -157,9 +171,12 @@ private:
     std::atomic<uint32_t>         cableSeq { 0 };
     mutable juce::CriticalSection cableWriteLock;   // message-thread writers only
     std::array<MidiCcBinding, kNumMidiCcBindings> midiCcBindings {};
+    juce::ValueTree defaultState;
+    mutable juce::CriticalSection presetLock;
+    juce::String currentPresetName { "Init" };
 
     float patchSourceValues[PP_NUM_POINTS] = {};  // written each sample (audio thread)
     float patchInputSums   [PP_NUM_POINTS] = {};  // accumulated each sample (audio thread)
 
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFProcessor)
 };

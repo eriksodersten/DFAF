@@ -10,6 +10,21 @@ To build and deploy the current plugin locally:
 ./deploy.sh
 ```
 
+## Presets
+
+DFAF now has an internal preset footer in the plugin UI.
+
+- `Init` resets all parameters and clears the patch panel.
+- Selecting a saved preset from the preset menu loads it immediately.
+- `SAVE` overwrites the current saved preset, or prompts for a new preset filename when the current state is `Init` or unsaved.
+- `DELETE` removes the currently selected saved preset.
+
+User presets are stored in:
+
+```text
+~/Library/Application Support/DFAF/Presets
+```
+
 ## MIDI CC Map
 
 The current MIDI implementation uses a fixed CC map. Continuous parameters follow CC `0..127` directly. Switches and combo-box style parameters are quantized to their nearest valid state.

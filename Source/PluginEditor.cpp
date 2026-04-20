@@ -5,6 +5,19 @@ static const juce::Colour labelBlack = juce::Colour(0xff111111);
 
 namespace
 {
+constexpr int kEditorBodyHeight = 480;
+constexpr int kPresetFooterHeight = 36;
+constexpr int kPresetInitId = 1;
+constexpr int kPresetFirstUserId = 2;
+constexpr int kPresetMissingId = 999;
+
+juce::File getDefaultPresetDirectory()
+{
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+        .getChildFile("DFAF")
+        .getChildFile("Presets");
+}
+
 bool cableSnapshotsEqual(const std::vector<PatchCable>& a, const std::vector<PatchCable>& b)
 {
     if (a.size() != b.size())
@@ -25,9 +38,58 @@ bool cableSnapshotsEqual(const std::vector<PatchCable>& a, const std::vector<Pat
 DFAFEditor::DFAFEditor(DFAFProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(1400, 480);
+    setSize(1400, kEditorBodyHeight + kPresetFooterHeight);
     setLookAndFeel(&laf);
     startTimerHz(30);
+
+    presetBox.setJustificationType(juce::Justification::centredLeft);
+    presetBox.onChange = [this]()
+    {
+        if (isUpdatingPresetBox)
+            return;
+
+        const int selectedId = presetBox.getSelectedId();
+        if (selectedId == kPresetMissingId)
+            return;
+
+        if (selectedId == kPresetInitId)
+            processor.loadInitPreset();
+        else
+            processor.loadPreset(presetBox.getText());
+
+        refreshPresetControls();
+    };
+    addAndMakeVisible(presetBox);
+
+    presetSaveButton.onClick = [this]() { promptSavePreset(); };
+    addAndMakeVisible(presetSaveButton);
+
+    presetDeleteButton.onClick = [this]()
+    {
+        const auto presetName = processor.getCurrentPresetName();
+        if (presetName.isEmpty() || presetName == "Init")
+            return;
+
+        if (juce::AlertWindow::showOkCancelBox(juce::AlertWindow::WarningIcon,
+                                               "Delete Preset",
+                                               "Delete preset \"" + presetName + "\"?",
+                                               "Delete",
+                                               "Cancel",
+                                               this,
+                                               nullptr))
+        {
+            processor.deletePreset(presetName);
+            refreshPresetControls();
+        }
+    };
+    addAndMakeVisible(presetDeleteButton);
+
+    presetInitButton.onClick = [this]()
+    {
+        processor.loadInitPreset();
+        refreshPresetControls();
+    };
+    addAndMakeVisible(presetInitButton);
 
     resetButton.setButtonText("RESET");
     resetButton.onClick = [this]() {
@@ -123,12 +185,93 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         }
 
     processor.getCableSnapshot(lastCableSnapshot);
+    refreshPresetControls();
 }
 
 DFAFEditor::~DFAFEditor()
 {
     stopTimer();
     setLookAndFeel(nullptr);
+}
+
+void DFAFEditor::refreshPresetControls()
+{
+    const auto presetNames = processor.getAvailablePresetNames();
+    const auto currentPreset = processor.getCurrentPresetName();
+
+    isUpdatingPresetBox = true;
+    presetBox.clear(juce::dontSendNotification);
+    presetBox.addItem("Init", kPresetInitId);
+
+    for (int i = 0; i < presetNames.size(); ++i)
+        presetBox.addItem(presetNames[i], kPresetFirstUserId + i);
+
+    if (currentPreset.isEmpty() || currentPreset == "Init")
+    {
+        presetBox.setSelectedId(kPresetInitId, juce::dontSendNotification);
+    }
+    else
+    {
+        const int presetIndex = presetNames.indexOf(currentPreset);
+        if (presetIndex >= 0)
+            presetBox.setSelectedId(kPresetFirstUserId + presetIndex, juce::dontSendNotification);
+        else
+        {
+            presetBox.addItem(currentPreset + " *", kPresetMissingId);
+            presetBox.setSelectedId(kPresetMissingId, juce::dontSendNotification);
+        }
+    }
+    isUpdatingPresetBox = false;
+
+    lastPresetName = currentPreset;
+    updatePresetButtonState();
+}
+
+void DFAFEditor::promptSavePreset()
+{
+    const auto currentPreset = processor.getCurrentPresetName();
+    if (currentPreset.isNotEmpty()
+        && currentPreset != "Init"
+        && processor.getAvailablePresetNames().contains(currentPreset))
+    {
+        processor.saveCurrentPreset();
+        refreshPresetControls();
+        return;
+    }
+
+    auto presetDirectory = getDefaultPresetDirectory();
+    presetDirectory.createDirectory();
+
+    const auto suggestedName = currentPreset == "Init" ? juce::String("New Preset") : currentPreset;
+    const auto suggestedFile = presetDirectory.getChildFile(suggestedName + ".dfafpreset");
+
+    presetSaveChooser = std::make_unique<juce::FileChooser>("Save DFAF Preset",
+                                                            suggestedFile,
+                                                            "*.dfafpreset");
+
+    presetSaveChooser->launchAsync(juce::FileBrowserComponent::saveMode
+                                       | juce::FileBrowserComponent::canSelectFiles,
+                                   [this](const juce::FileChooser& chooser)
+                                   {
+                                       const auto result = chooser.getResult();
+                                       presetSaveChooser.reset();
+
+                                       if (result == juce::File())
+                                           return;
+
+                                       processor.savePreset(result.getFileNameWithoutExtension());
+                                       refreshPresetControls();
+                                   });
+}
+
+void DFAFEditor::updatePresetButtonState()
+{
+    const auto currentPreset = processor.getCurrentPresetName();
+    const bool hasSavedPreset = currentPreset.isNotEmpty()
+        && currentPreset != "Init"
+        && processor.getAvailablePresetNames().contains(currentPreset);
+
+    presetDeleteButton.setEnabled(hasSavedPreset);
 }
 
 // =============================================================================
@@ -145,7 +288,6 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
     const int py    = 0;                  // jack panel top edge
 
     const int col1   = px + 32;
-    const int col2   = px + 100;
     const int col3   = px + 168;
     const int startY = py + 34;
     const int stride = 36;
@@ -167,6 +309,7 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
         case PP_VCO2:      return { col3, startY + 4 * stride };
         case PP_VELOCITY:  return { col3, startY + 5 * stride };
         case PP_PITCH:     return { col3, startY + 6 * stride };
+        case PP_NUM_POINTS:
         default:           return { -1, -1 };
     }
 }
@@ -229,6 +372,11 @@ void DFAFEditor::timerCallback()
 {
     bool needsRepaint = false;
     int step = processor.getCurrentStep();
+    const auto currentPreset = processor.getCurrentPresetName();
+
+    if (currentPreset != lastPresetName)
+        refreshPresetControls();
+
     if (step >= 0)
         resetLedActive = false;
 
@@ -344,7 +492,6 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, int x, int y, int w, int h,
     };
 
     const int col1 = x + 32;
-    const int col2 = x + 100;
     const int col3 = x + 168;
 
     const int startY = y + 34;
@@ -450,6 +597,7 @@ void DFAFEditor::paint(juce::Graphics& g)
     g.setColour(juce::Colour(0xffbbbbbb));
     g.drawLine((float)wood, 160.0f, (float)(W-wood-jackW), 160.0f, 0.8f);
     g.drawLine((float)wood, 308.0f, (float)(W-wood-jackW), 308.0f, 0.8f);
+    g.drawLine((float)wood, (float)kEditorBodyHeight, (float)(W-wood-jackW), (float)kEditorBodyHeight, 0.8f);
 
     const int mainW = W - wood * 2 - jackW;
     const int kS    = (mainW - 60) / 11;
@@ -457,6 +605,7 @@ void DFAFEditor::paint(juce::Graphics& g)
 
     g.setColour(labelBlack);
     g.setFont(juce::FontOptions(7.5f).withStyle("Bold"));
+    g.drawText("PRESET", wood + 24, kEditorBodyHeight + 12, 44, 10, juce::Justification::centredLeft);
 
     // Row 1 labels
     const char* top[] = {
@@ -544,6 +693,12 @@ void DFAFEditor::resized()
     const int offX  = wood + 30;
     const int kSz   = 54;
     const int sSz   = 30;
+    const int footerY = kEditorBodyHeight + 7;
+
+    presetBox.setBounds(wood + 76, footerY, 220, 22);
+    presetSaveButton.setBounds(wood + 306, footerY, 70, 22);
+    presetDeleteButton.setBounds(wood + 384, footerY, 78, 22);
+    presetInitButton.setBounds(wood + 470, footerY, 54, 22);
 
     seqPitchModBox.setBounds(offX + 1*kS + (kS-60)/2, 50, 60, 22);
     hardSyncBox.setBounds(offX + 1*kS + (kS-60)/2, 210, 60, 22);

@@ -116,10 +116,6 @@ public:
         juce::RangedAudioParameter* vcfDecayParam = nullptr;  // cached for normalised-domain mod
     juce::RangedAudioParameter* vcaDecayParam = nullptr;  // cached for normalised-domain mod
     juce::RangedAudioParameter* vcoDecayParam = nullptr;  // cached for normalised-domain mod
-        float smoothedNoiseMod  = 0.0f;
-        float noiseModHpState   = 0.0f;
-        float noiseModCoeff     = 0.028f;   // LP för noise->VCF textur
-        float noiseModHpCoeff   = 0.0028f;  // mycket mild HPF för att ta bort långsam drift
     juce::SmoothedValue<float> smoothedCutoff;
     juce::SmoothedValue<float> smoothedVolume;
     juce::SmoothedValue<float> smoothedVco1Level;

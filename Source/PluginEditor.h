@@ -122,6 +122,7 @@ private:
                        PatchPoint selectedOut) const;
 
     PatchPoint pendingOut = PP_NUM_POINTS;   // OUT jack waiting for a destination
+    std::vector<PatchCable> lastCableSnapshot;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     std::unique_ptr<SliderAttachment> vcoDecayAtt, vco1FreqAtt, vco1EgAmtAtt;

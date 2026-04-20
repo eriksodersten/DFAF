@@ -3,6 +3,25 @@
 static const juce::Colour panelWhite = juce::Colour(0xfff0ede8);
 static const juce::Colour labelBlack = juce::Colour(0xff111111);
 
+namespace
+{
+bool cableSnapshotsEqual(const std::vector<PatchCable>& a, const std::vector<PatchCable>& b)
+{
+    if (a.size() != b.size())
+        return false;
+
+    for (size_t i = 0; i < a.size(); ++i)
+    {
+        if (a[i].src     != b[i].src)     return false;
+        if (a[i].dst     != b[i].dst)     return false;
+        if (std::abs(a[i].amount - b[i].amount) > 1.0e-6f) return false;
+        if (a[i].enabled != b[i].enabled) return false;
+    }
+
+    return true;
+}
+}
+
 DFAFEditor::DFAFEditor(DFAFProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
@@ -102,6 +121,8 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
             stepPitchAtt[i] = std::make_unique<SliderAttachment>(apvts, "stepPitch" + juce::String(i), stepPitch[i]);
             stepVelAtt[i]   = std::make_unique<SliderAttachment>(apvts, "stepVel"   + juce::String(i), stepVelocity[i]);
         }
+
+    processor.getCableSnapshot(lastCableSnapshot);
 }
 
 DFAFEditor::~DFAFEditor()
@@ -206,6 +227,7 @@ void DFAFEditor::mouseDown(const juce::MouseEvent& e)
 
 void DFAFEditor::timerCallback()
 {
+    bool needsRepaint = false;
     int step = processor.getCurrentStep();
     if (step >= 0)
         resetLedActive = false;
@@ -214,8 +236,20 @@ void DFAFEditor::timerCallback()
     if (displayStep != currentLedStep)
     {
         currentLedStep = displayStep;
-        repaint();
+        needsRepaint = true;
     }
+
+    std::vector<PatchCable> cables;
+    processor.getCableSnapshot(cables);
+    if (!cableSnapshotsEqual(cables, lastCableSnapshot))
+    {
+        lastCableSnapshot = std::move(cables);
+        pendingOut = PP_NUM_POINTS;
+        needsRepaint = true;
+    }
+
+    if (needsRepaint)
+        repaint();
 }
 
 void DFAFEditor::setupKnob(juce::Slider& s, bool small)

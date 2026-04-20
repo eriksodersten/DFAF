@@ -17,10 +17,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vcoDecay",    "VCO Decay",
             vcoDecayRange, 0.3f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("vco1Freq",    "VCO 1 Freq",    20.0f, 2000.0f, 220.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vco1Freq",    "VCO 1 Freq",     1.0f, 2000.0f, 220.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vco1EgAmt",   "VCO 1 EG Amt", -60.0f, 60.0f,   0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("fmAmount",    "FM Amount",     0.0f,  1.0f,    0.0f));
-    params.push_back(std::make_unique<juce::AudioParameterFloat>("vco2Freq",    "VCO 2 Freq",    20.0f, 2000.0f, 330.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>("vco2Freq",    "VCO 2 Freq",     1.0f, 2000.0f, 330.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("vco2EgAmt",   "VCO 2 EG Amt", -60.0f, 60.0f,   0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("noiseLevel",  "Noise Level",   0.0f,  1.0f,    0.2f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>("vco1Level",   "VCO 1 Level",   0.0f,  1.0f,    0.6f));
@@ -77,10 +77,6 @@ void DFAFProcessor::prepareToPlay(double sampleRate, int)
     filter.prepare(sampleRate);
     filter.setCutoff(800.0f);
     filter.setResonance(0.4f);
-    noiseModCoeff   = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 291.0f / (float)sampleRate);
-    noiseModHpCoeff = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * 18.0f  / (float)sampleRate);
-    smoothedNoiseMod = 0.0f;
-    noiseModHpState  = 0.0f;
     for (int p = 0; p < PP_NUM_POINTS; ++p)
         patchSourceValues[p] = patchInputSums[p] = 0.0f;
     vcfDecayParam = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter("vcfDecay"));
@@ -378,10 +374,6 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
             voice.setDecayTime(vcoDecayVal);
         }
 
-        smoothedNoiseMod += (frame.noiseRaw - smoothedNoiseMod) * noiseModCoeff;
-        noiseModHpState  += (smoothedNoiseMod - noiseModHpState) * noiseModHpCoeff;
-        float bandLimitedNoiseMod = smoothedNoiseMod - noiseModHpState;
-        float shapedNoiseMod = std::tanh(bandLimitedNoiseMod * 1.5f) / std::tanh(1.5f);
         float shapedVcfEgAmt = (vcfEgAmt >= 0.0f)
             ? (vcfEgAmt * vcfEgAmt)
             : -(vcfEgAmt * vcfEgAmt);
@@ -395,7 +387,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         // noiseVcfMod knob sets depth for both paths.
         float vcfModSignal = hasVcfModCable
             ? juce::jlimit(-1.0f, 1.0f, patchInputSums[PP_VCF_MOD])
-            : shapedNoiseMod;
+            : frame.noiseRaw;
         float noisedCutoff    = cutoffNow * std::pow(2.0f, noiseVcfMod * vcfModSignal * 2.0f);
         float modulatedCutoff = juce::jlimit(20.0f, 20000.0f, noisedCutoff + vcfEgHz);
         filter.setCutoff(modulatedCutoff);

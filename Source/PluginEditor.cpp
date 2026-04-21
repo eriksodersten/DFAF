@@ -148,6 +148,12 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     for (int i = 0; i < 8; ++i) { add(stepPitch[i], true); add(stepVelocity[i], true); }
 
     auto& apvts = p.apvts;
+    auto setDoubleClickToDefault = [&apvts](juce::Slider& slider, const juce::String& parameterId)
+    {
+        if (auto* parameter = dynamic_cast<juce::RangedAudioParameter*>(apvts.getParameter(parameterId)))
+            slider.setDoubleClickReturnValue(true, parameter->convertFrom0to1(parameter->getDefaultValue()));
+    };
+
     vcoDecayAtt       = std::make_unique<SliderAttachment>(apvts, "vcoDecay", vcoDecay);
     seqPitchModBoxAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
             apvts, "seqPitchMod", seqPitchModBox);
@@ -180,9 +186,17 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
 
         for (int i = 0; i < 8; ++i)
         {
-            stepPitchAtt[i] = std::make_unique<SliderAttachment>(apvts, "stepPitch" + juce::String(i), stepPitch[i]);
-            stepVelAtt[i]   = std::make_unique<SliderAttachment>(apvts, "stepVel"   + juce::String(i), stepVelocity[i]);
+            const auto stepPitchId = "stepPitch" + juce::String(i);
+            const auto stepVelId   = "stepVel"   + juce::String(i);
+            stepPitchAtt[i] = std::make_unique<SliderAttachment>(apvts, stepPitchId, stepPitch[i]);
+            stepVelAtt[i]   = std::make_unique<SliderAttachment>(apvts, stepVelId,   stepVelocity[i]);
+            setDoubleClickToDefault(stepPitch[i], stepPitchId);
+            setDoubleClickToDefault(stepVelocity[i], stepVelId);
         }
+
+    vco1EgAmount.setDoubleClickReturnValue(true, 0.0);
+    vco2EgAmount.setDoubleClickReturnValue(true, 0.0);
+    vcfEgAmount.setDoubleClickReturnValue(true, 0.0);
 
     processor.getCableSnapshot(lastCableSnapshot);
     refreshPresetControls();

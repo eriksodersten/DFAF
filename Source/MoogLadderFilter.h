@@ -72,7 +72,7 @@ public:
     }
 
 private:
-    static constexpr int   kOversampling      = 2;
+    static constexpr int   kOversampling      = 4;
     static constexpr float kOversamplingRecip = 1.0f / kOversampling;
 
     float processHP(float input)

@@ -55,7 +55,9 @@ private:
 
     juce::Slider vcoDecay, vco1EgAmount, vco1Frequency;
     juce::ComboBox seqPitchModBox;
+    juce::TextButton seqPitchModButton { "SEQ PITCH MOD" };
     juce::ComboBox hardSyncBox;
+    juce::TextButton hardSyncButton { "HARD SYNC" };
     juce::Slider vco1Level, noiseLevel, cutoff, resonance, vcaEg, volume;
 
     juce::Slider fmAmount, vco2EgAmount, vco2Frequency;

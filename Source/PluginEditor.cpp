@@ -1,8 +1,10 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <iterator>
 
 namespace
 {
@@ -91,8 +93,32 @@ void drawPanelToggle(juce::Graphics& g, juce::Rectangle<float> bounds, int selec
     g.drawRoundedRectangle(handle, 2.0f, 1.0f);
 
     auto redDot = juce::Rectangle<float>(4.4f, 4.4f).withCentre({ handle.getRight() - 9.0f, handle.getCentreY() - 0.5f });
-    g.setColour(juce::Colour(0xff78342d));
+    g.setColour(juce::Colour(0xff8a302d));
     g.fillEllipse(redDot);
+    g.setColour(juce::Colour(0xffff8a78).withAlpha(0.42f));
+    g.fillEllipse(redDot.reduced(1.4f).translated(-0.4f, -0.4f));
+}
+
+int seqPitchModPanelIndex(int parameterIndex)
+{
+    switch (parameterIndex)
+    {
+        case 2:  return 1; // VCO 2 is the centre position on the panel.
+        case 1:  return 2; // OFF is the right position on the panel.
+        default: return 0; // VCO 1&2 is the left position.
+    }
+}
+
+void drawActivePanelLed(juce::Graphics& g, juce::Rectangle<float> led)
+{
+    g.setColour(kLedRed.withAlpha(0.26f));
+    g.fillEllipse(led.expanded(4.0f));
+    g.setColour(juce::Colour(0xff5a1614));
+    g.fillEllipse(led.expanded(1.0f));
+    g.setColour(kLedRed);
+    g.fillEllipse(led);
+    g.setColour(juce::Colour(0xffffd0bd).withAlpha(0.62f));
+    g.fillEllipse(led.reduced(2.6f).translated(-1.0f, -1.0f));
 }
 
 juce::Path makeCablePath(juce::Point<float> src, juce::Point<float> dst, float slack = 1.0f)
@@ -389,14 +415,37 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     seqPitchModBox.addItem("OFF", 2);
     seqPitchModBox.addItem("VCO 2", 3);
     seqPitchModBox.setComponentID(kPanelControlId);
+    seqPitchModBox.setInterceptsMouseClicks(false, false);
     seqPitchModBox.onChange = [this]() { repaint(); };
     addAndMakeVisible(seqPitchModBox);
+
+    seqPitchModButton.setComponentID(kPanelControlId);
+    seqPitchModButton.onClick = [this]()
+    {
+        static constexpr std::array<int, 3> panelOrderIds { 1, 3, 2 };
+        const int currentId = seqPitchModBox.getSelectedId();
+        const auto* current = std::find(panelOrderIds.begin(), panelOrderIds.end(), currentId);
+        const auto next = current == panelOrderIds.end() ? panelOrderIds.begin()
+                                                         : std::next(current);
+        seqPitchModBox.setSelectedId(next == panelOrderIds.end() ? panelOrderIds.front() : *next,
+                                     juce::sendNotification);
+    };
+    addAndMakeVisible(seqPitchModButton);
 
     hardSyncBox.addItem("OFF", 1);
     hardSyncBox.addItem("ON", 2);
     hardSyncBox.setComponentID(kPanelControlId);
+    hardSyncBox.setInterceptsMouseClicks(false, false);
     hardSyncBox.onChange = [this]() { repaint(); };
     addAndMakeVisible(hardSyncBox);
+
+    hardSyncButton.setComponentID(kPanelControlId);
+    hardSyncButton.onClick = [this]()
+    {
+        hardSyncBox.setSelectedId(hardSyncBox.getSelectedId() == 2 ? 1 : 2,
+                                  juce::sendNotification);
+    };
+    addAndMakeVisible(hardSyncButton);
 
     vco1WaveBox.addItem("SQUARE", 1);
     vco1WaveBox.addItem("TRIANGLE", 2);
@@ -908,14 +957,20 @@ void DFAFEditor::setupKnob(juce::Slider& s, bool small)
 
 void DFAFEditor::drawPanelSwitches(juce::Graphics& g) const
 {
+    const int seqPitchModIndex = seqPitchModPanelIndex(seqPitchModBox.getSelectedItemIndex());
     drawPanelToggle(g, mapPanelRect(231.0f, 182.0f, 96.0f, 33.0f).toFloat(),
-                    juce::jlimit(0, 2, seqPitchModBox.getSelectedItemIndex()), 3);
+                    seqPitchModIndex, 3);
+    drawActivePanelLed(g, mapPanelRect(245.0f + 29.0f * (float) seqPitchModIndex, 162.0f, 9.0f, 9.0f).toFloat());
+
     drawPanelToggle(g, mapPanelRect(631.0f, 171.0f, 54.0f, 30.0f).toFloat(),
                     juce::jlimit(0, 1, vco1WaveBox.getSelectedItemIndex()), 2);
     drawPanelToggle(g, mapPanelRect(958.0f, 191.0f, 43.0f, 31.0f).toFloat(),
                     juce::jlimit(0, 1, vcfModeBox.getSelectedItemIndex()), 2);
     drawPanelToggle(g, mapPanelRect(250.0f, 405.0f, 52.0f, 31.0f).toFloat(),
                     juce::jlimit(0, 1, hardSyncBox.getSelectedItemIndex()), 2);
+    if (hardSyncBox.getSelectedItemIndex() == 1)
+        drawActivePanelLed(g, mapPanelRect(272.0f, 385.0f, 9.0f, 9.0f).toFloat());
+
     drawPanelToggle(g, mapPanelRect(631.0f, 395.0f, 54.0f, 30.0f).toFloat(),
                     juce::jlimit(0, 1, vco2WaveBox.getSelectedItemIndex()), 2);
 
@@ -1049,9 +1104,11 @@ void DFAFEditor::resized()
     resetButton.setBounds(mapPanelRect(163.0f, 724.0f, 45.0f, 40.0f));
 
     seqPitchModBox.setBounds(mapPanelRect(231.0f, 182.0f, 96.0f, 34.0f));
+    seqPitchModButton.setBounds(seqPitchModBox.getBounds());
     vco1WaveBox.setBounds(mapPanelRect(631.0f, 171.0f, 54.0f, 51.0f));
     vcfModeBox.setBounds(mapPanelRect(958.0f, 171.0f, 43.0f, 51.0f));
     hardSyncBox.setBounds(mapPanelRect(250.0f, 405.0f, 52.0f, 58.0f));
+    hardSyncButton.setBounds(hardSyncBox.getBounds());
     vco2WaveBox.setBounds(mapPanelRect(631.0f, 395.0f, 54.0f, 51.0f));
 
     for (int i = 0; i < 8; ++i)

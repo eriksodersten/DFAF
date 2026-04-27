@@ -83,11 +83,17 @@ private:
     juce::Point<int> getJackCentre(PatchPoint pp) const;
     PatchPoint jackHitTest(juce::Point<int> pos) const;
     void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
     void drawJackPanel(juce::Graphics& g, juce::Rectangle<int> area,
                        const std::vector<PatchCable>& cables,
                        PatchPoint selectedOut) const;
 
     PatchPoint pendingOut = PP_NUM_POINTS;
+    PatchPoint dragPatchPoint = PP_NUM_POINTS;
+    PatchPoint dragHoverPoint = PP_NUM_POINTS;
+    juce::Point<int> dragPatchPos;
+    bool isDraggingPatchCable = false;
     std::vector<PatchCable> lastCableSnapshot;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;

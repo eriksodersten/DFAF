@@ -19,8 +19,9 @@ const juce::Colour kButtonFace       = juce::Colour(0xff272727);
 const juce::Colour kButtonFaceBright = juce::Colour(0xff3b3b3b);
 const juce::Colour kButtonBorder     = juce::Colour(0xff111111);
 const juce::Colour kJackGreen        = juce::Colour(0xff7ce381);
-const juce::Colour kCableWarm        = juce::Colour(0xff9d564d);
+const juce::Colour kCableRed         = juce::Colour(0xffb24737);
 const juce::Colour kCableDark        = juce::Colour(0xff383838);
+const juce::Colour kCableAmber       = juce::Colour(0xffb06a3a);
 
 constexpr float kPanelSourceWidth = 1689.0f;
 constexpr float kPanelSourceHeight = 931.0f;
@@ -92,6 +93,79 @@ void drawPanelToggle(juce::Graphics& g, juce::Rectangle<float> bounds, int selec
     auto redDot = juce::Rectangle<float>(4.4f, 4.4f).withCentre({ handle.getRight() - 9.0f, handle.getCentreY() - 0.5f });
     g.setColour(juce::Colour(0xff78342d));
     g.fillEllipse(redDot);
+}
+
+juce::Path makeCablePath(juce::Point<float> src, juce::Point<float> dst, float slack = 1.0f)
+{
+    const auto dx = dst.x - src.x;
+    const auto dy = dst.y - src.y;
+    const auto distance = std::sqrt(dx * dx + dy * dy);
+    const auto side = dx >= 0.0f ? 1.0f : -1.0f;
+    const auto sag = juce::jlimit(14.0f, 74.0f, distance * 0.15f) * slack;
+    const auto bow = juce::jlimit(28.0f, 112.0f, std::abs(dx) * 0.55f + 24.0f);
+
+    juce::Path cable;
+    cable.startNewSubPath(src);
+    cable.cubicTo(src.x + bow * side, src.y + sag,
+                  dst.x - bow * side, dst.y + sag,
+                  dst.x, dst.y);
+    return cable;
+}
+
+juce::Colour cableColourFor(const PatchCable& cable, int index)
+{
+    if (cable.src == PP_FM_AMT || cable.dst == PP_FM_AMT)
+        return kCableDark;
+
+    switch (index % 3)
+    {
+        case 0:  return kCableRed;
+        case 1:  return kCableDark;
+        default: return kCableAmber;
+    }
+}
+
+void drawCable(juce::Graphics& g, juce::Point<float> src, juce::Point<float> dst,
+               juce::Colour colour, float alpha, bool preview)
+{
+    auto cablePath = makeCablePath(src, dst, preview ? 0.82f : 1.0f);
+    const auto width = preview ? 4.8f : 7.4f;
+
+    auto shadowPath = cablePath;
+    shadowPath.applyTransform(juce::AffineTransform::translation(2.0f, 3.2f));
+    g.setColour(juce::Colour(0x8a000000).withAlpha(alpha * 0.62f));
+    g.strokePath(shadowPath, juce::PathStrokeType(width + 5.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    g.setColour(colour.darker(0.72f).withAlpha(alpha));
+    g.strokePath(cablePath, juce::PathStrokeType(width + 2.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    g.setColour(colour.darker(0.08f).withAlpha(alpha));
+    g.strokePath(cablePath, juce::PathStrokeType(width, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    auto lowlightPath = cablePath;
+    lowlightPath.applyTransform(juce::AffineTransform::translation(0.0f, 1.1f));
+    g.setColour(juce::Colours::black.withAlpha(alpha * 0.24f));
+    g.strokePath(lowlightPath, juce::PathStrokeType(width * 0.34f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    auto highlightPath = cablePath;
+    highlightPath.applyTransform(juce::AffineTransform::translation(-0.55f, -1.25f));
+    g.setColour(colour.brighter(0.72f).withAlpha(alpha * (preview ? 0.28f : 0.38f)));
+    g.strokePath(highlightPath, juce::PathStrokeType(width * 0.18f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
+void drawCablePlug(juce::Graphics& g, juce::Point<float> centre, juce::Colour colour, bool active)
+{
+    auto collar = juce::Rectangle<float>(18.0f, 18.0f).withCentre(centre);
+    g.setColour(juce::Colour(0x75000000));
+    g.fillEllipse(collar.translated(1.2f, 1.8f));
+    g.setColour(juce::Colour(0xff151515).withAlpha(active ? 0.96f : 0.86f));
+    g.fillEllipse(collar);
+
+    auto insert = collar.reduced(5.2f);
+    g.setColour(colour.darker(0.35f).withAlpha(active ? 0.92f : 0.76f));
+    g.fillEllipse(insert);
+    g.setColour(colour.brighter(0.55f).withAlpha(0.30f));
+    g.fillEllipse(insert.withTrimmedBottom(insert.getHeight() * 0.55f).reduced(0.8f, 0.0f));
 }
 }
 
@@ -541,7 +615,7 @@ juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
 
 PatchPoint DFAFEditor::jackHitTest(juce::Point<int> pos) const
 {
-    constexpr int hitR2 = 14 * 14;
+    constexpr int hitR2 = 18 * 18;
 
     for (int p = 0; p < PP_NUM_POINTS; ++p)
     {
@@ -562,6 +636,10 @@ PatchPoint DFAFEditor::jackHitTest(juce::Point<int> pos) const
 void DFAFEditor::mouseDown(const juce::MouseEvent& e)
 {
     PatchPoint hit = jackHitTest(e.getPosition());
+    dragPatchPoint = hit;
+    dragHoverPoint = hit;
+    dragPatchPos = e.getPosition();
+    isDraggingPatchCable = false;
 
     if (hit == PP_NUM_POINTS)
     {
@@ -569,31 +647,96 @@ void DFAFEditor::mouseDown(const juce::MouseEvent& e)
         repaint();
         return;
     }
+}
 
-    if (kPatchMeta[hit].dir == PD_Out)
+void DFAFEditor::mouseDrag(const juce::MouseEvent& e)
+{
+    if (dragPatchPoint == PP_NUM_POINTS)
+        return;
+
+    dragPatchPos = e.getPosition();
+    dragHoverPoint = jackHitTest(dragPatchPos);
+
+    if (e.getDistanceFromDragStart() > 3)
     {
-        pendingOut = (pendingOut == hit) ? PP_NUM_POINTS : hit;
+        isDraggingPatchCable = true;
+        if (kPatchMeta[dragPatchPoint].dir == PD_Out)
+            pendingOut = dragPatchPoint;
+    }
+
+    repaint();
+}
+
+void DFAFEditor::mouseUp(const juce::MouseEvent& e)
+{
+    if (!isDraggingPatchCable || dragPatchPoint == PP_NUM_POINTS)
+    {
+        const auto hit = jackHitTest(e.getPosition());
+
+        if (hit != PP_NUM_POINTS && kPatchMeta[hit].dir == PD_Out)
+        {
+            pendingOut = (pendingOut == hit) ? PP_NUM_POINTS : hit;
+        }
+        else if (hit != PP_NUM_POINTS && pendingOut != PP_NUM_POINTS)
+        {
+            std::vector<PatchCable> cables;
+            processor.getCableSnapshot(cables);
+
+            bool alreadyConnected = false;
+            for (const auto& c : cables)
+                if (c.src == pendingOut && c.dst == hit)
+                    alreadyConnected = true;
+
+            if (alreadyConnected)
+                processor.disconnectPatch(pendingOut, hit);
+            else
+                processor.connectPatch(pendingOut, hit, 1.0f);
+
+            pendingOut = PP_NUM_POINTS;
+        }
+
+        dragPatchPoint = PP_NUM_POINTS;
+        dragHoverPoint = PP_NUM_POINTS;
+        isDraggingPatchCable = false;
         repaint();
         return;
     }
 
-    if (pendingOut == PP_NUM_POINTS)
-        return;
+    const auto releasePoint = jackHitTest(e.getPosition());
+    PatchPoint src = PP_NUM_POINTS;
+    PatchPoint dst = PP_NUM_POINTS;
 
-    std::vector<PatchCable> cables;
-    processor.getCableSnapshot(cables);
+    if (releasePoint != PP_NUM_POINTS && kPatchMeta[dragPatchPoint].dir != kPatchMeta[releasePoint].dir)
+    {
+        if (kPatchMeta[dragPatchPoint].dir == PD_Out)
+        {
+            src = dragPatchPoint;
+            dst = releasePoint;
+        }
+        else
+        {
+            src = releasePoint;
+            dst = dragPatchPoint;
+        }
 
-    bool alreadyConnected = false;
-    for (const auto& c : cables)
-        if (c.src == pendingOut && c.dst == hit)
-            alreadyConnected = true;
+        std::vector<PatchCable> cables;
+        processor.getCableSnapshot(cables);
 
-    if (alreadyConnected)
-        processor.disconnectPatch(pendingOut, hit);
-    else
-        processor.connectPatch(pendingOut, hit, 1.0f);
+        bool alreadyConnected = false;
+        for (const auto& c : cables)
+            if (c.src == src && c.dst == dst)
+                alreadyConnected = true;
+
+        if (alreadyConnected)
+            processor.disconnectPatch(src, dst);
+        else
+            processor.connectPatch(src, dst, 1.0f);
+    }
 
     pendingOut = PP_NUM_POINTS;
+    dragPatchPoint = PP_NUM_POINTS;
+    dragHoverPoint = PP_NUM_POINTS;
+    isDraggingPatchCable = false;
     repaint();
 }
 
@@ -603,25 +746,19 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, juce::Rectangle<int> area,
 {
     juce::ignoreUnused(area);
 
-    auto drawJack = [&](PatchPoint pp, juce::Point<int> centre, bool isOutput)
+    int cableIndex = 0;
+    for (const auto& cable : cables)
     {
-        juce::ignoreUnused(isOutput);
-        const auto c = juce::Point<float>((float) centre.x, (float) centre.y);
-        auto outer = juce::Rectangle<float>(24.0f, 24.0f).withCentre(c);
+        if (!cable.enabled)
+            continue;
 
-        if (selectedOut == pp)
-        {
-            g.setColour(juce::Colour(0xffffd268));
-            g.drawEllipse(outer.expanded(4.0f), 2.0f);
-        }
-    };
+        const auto src = getJackCentre(cable.src).toFloat();
+        const auto dst = getJackCentre(cable.dst).toFloat();
+        if (src.x < 0.0f || dst.x < 0.0f)
+            continue;
 
-    const auto inputs = inputOrder();
-    const auto outputs = outputOrder();
-    for (int i = 0; i < 7; ++i)
-    {
-        drawJack(outputs[(size_t) i], getJackCentre(outputs[(size_t) i]), true);
-        drawJack(inputs[(size_t) i], getJackCentre(inputs[(size_t) i]), false);
+        const auto cableColour = cableColourFor(cable, cableIndex++);
+        drawCable(g, src, dst, cableColour, 0.96f, false);
     }
 
     for (const auto& cable : cables)
@@ -634,19 +771,56 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, juce::Rectangle<int> area,
         if (src.x < 0.0f || dst.x < 0.0f)
             continue;
 
-        juce::Path cablePath;
-        cablePath.startNewSubPath(src);
-        const float bend = juce::jmax(26.0f, std::abs(dst.x - src.x) * 0.45f);
-        cablePath.cubicTo(src.x + bend, src.y - 10.0f, dst.x - bend, dst.y - 10.0f, dst.x, dst.y);
+        const auto colour = cableColourFor(cable, cableIndex++);
+        drawCablePlug(g, src, colour, true);
+        drawCablePlug(g, dst, colour, true);
+    }
 
-        const auto cableColour = cable.src == PP_FM_AMT || cable.dst == PP_FM_AMT ? kCableDark : kCableWarm;
-        g.setColour(cableColour.withAlpha(0.95f));
-        g.strokePath(cablePath, juce::PathStrokeType(4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.setColour(juce::Colour(0x25ffffff));
-        g.strokePath(cablePath, juce::PathStrokeType(1.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    if (isDraggingPatchCable && dragPatchPoint != PP_NUM_POINTS)
+    {
+        const auto start = getJackCentre(dragPatchPoint).toFloat();
+        auto end = dragPatchPos.toFloat();
+        const bool hoverCompatible = dragHoverPoint != PP_NUM_POINTS
+            && kPatchMeta[dragHoverPoint].dir != kPatchMeta[dragPatchPoint].dir;
+        if (hoverCompatible)
+            end = getJackCentre(dragHoverPoint).toFloat();
 
-        g.setColour(kJackGreen);
-        g.drawEllipse(juce::Rectangle<float>(22.0f, 22.0f).withCentre(dst).expanded(4.0f), 1.6f);
+        const auto previewColour = hoverCompatible ? kCableRed : kCableDark;
+        drawCable(g, start, end, previewColour, hoverCompatible ? 0.88f : 0.52f, true);
+        drawCablePlug(g, start, previewColour, true);
+
+        if (hoverCompatible)
+            drawCablePlug(g, end, previewColour, true);
+    }
+
+    auto drawJackState = [&](PatchPoint pp)
+    {
+        const auto c = getJackCentre(pp).toFloat();
+        if (c.x < 0.0f)
+            return;
+
+        const bool selected = selectedOut == pp || dragPatchPoint == pp;
+        const bool hoverCompatible = isDraggingPatchCable
+            && dragHoverPoint == pp
+            && dragPatchPoint != PP_NUM_POINTS
+            && kPatchMeta[dragPatchPoint].dir != kPatchMeta[pp].dir;
+
+        if (selected || hoverCompatible)
+        {
+            const auto ring = juce::Rectangle<float>(26.0f, 26.0f).withCentre(c);
+            g.setColour((hoverCompatible ? kJackGreen : juce::Colour(0xffffd268)).withAlpha(0.26f));
+            g.fillEllipse(ring.expanded(5.0f));
+            g.setColour(hoverCompatible ? kJackGreen : juce::Colour(0xffffd268));
+            g.drawEllipse(ring.expanded(3.0f), 2.0f);
+        }
+    };
+
+    const auto inputs = inputOrder();
+    const auto outputs = outputOrder();
+    for (int i = 0; i < 7; ++i)
+    {
+        drawJackState(outputs[(size_t) i]);
+        drawJackState(inputs[(size_t) i]);
     }
 }
 

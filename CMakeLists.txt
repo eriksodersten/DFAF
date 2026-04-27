@@ -27,6 +27,11 @@ target_sources(DFAF PRIVATE
     Source/PluginEditor.cpp
 )
 
+juce_add_binary_data(DFAFGuiAssets
+    SOURCES
+        ig_0b9a34b24e54dfb20169ecc11305388191ac4d2979b55f8ab8.png
+)
+
 source_group("Header Files" FILES
     Source/PluginProcessor.h
     Source/PluginEditor.h
@@ -61,6 +66,7 @@ target_compile_definitions(DFAF PUBLIC
 )
 
 target_link_libraries(DFAF PRIVATE
+    DFAFGuiAssets
     juce::juce_audio_utils
     juce::juce_dsp
     PUBLIC

@@ -23,6 +23,9 @@ public:
 
     juce::Font getComboBoxFont(juce::ComboBox&) override;
     void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override;
+
+private:
+    static bool isPanelControl(const juce::Component& component);
 };
 
 class DFAFEditor : public juce::AudioProcessorEditor,
@@ -38,6 +41,7 @@ public:
 private:
     DFAFProcessor& processor;
     DFAFLookAndFeel laf;
+    juce::Image panelImage;
 
     juce::ComboBox presetBox;
     juce::TextButton presetSaveButton { "SAVE" };
@@ -69,10 +73,11 @@ private:
     void refreshPresetControls();
     void promptSavePreset();
     void updatePresetButtonState();
+    juce::Rectangle<float> getPanelImageBounds() const;
+    juce::Rectangle<int> mapPanelRect(float x, float y, float w, float h) const;
+    juce::Point<int> mapPanelPoint(float x, float y) const;
+    void drawPanelSwitches(juce::Graphics& g) const;
 
-    juce::Rectangle<int> getContentBounds() const;
-    juce::Rectangle<int> getMainPanelBounds() const;
-    juce::Rectangle<int> getUtilityAreaBounds() const;
     juce::Rectangle<int> getPatchAreaBounds() const;
 
     juce::Point<int> getJackCentre(PatchPoint pp) const;

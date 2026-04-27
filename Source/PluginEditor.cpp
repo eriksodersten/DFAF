@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "BinaryData.h"
 
 #include <array>
 #include <cmath>
@@ -7,35 +8,23 @@ namespace
 {
 constexpr int kEditorWidth = 1440;
 constexpr int kEditorHeight = 760;
-constexpr int kOuterMargin = 16;
-constexpr int kUtilityHeight = 74;
-constexpr int kPatchWidth = 214;
-constexpr int kWoodWidth = 28;
 
 constexpr int kPresetInitId = 1;
 constexpr int kPresetFirstUserId = 2;
 constexpr int kPresetMissingId = 999;
 
-const juce::Colour kCaseOuter        = juce::Colour(0xff111111);
-const juce::Colour kCaseInner        = juce::Colour(0xff2a2a2a);
 const juce::Colour kPanelCream       = juce::Colour(0xffede5d1);
-const juce::Colour kPanelWarm        = juce::Colour(0xffd8c8a2);
-const juce::Colour kPanelShadow      = juce::Colour(0x26000000);
-const juce::Colour kInk              = juce::Colour(0xff1e1e1e);
-const juce::Colour kDivider          = juce::Colour(0x664b4538);
-const juce::Colour kDividerSoft      = juce::Colour(0x334b4538);
-const juce::Colour kAccentRed        = juce::Colour(0xffa3382d);
 const juce::Colour kLedRed           = juce::Colour(0xffff6558);
-const juce::Colour kLedGreen         = juce::Colour(0xffb7ef67);
 const juce::Colour kButtonFace       = juce::Colour(0xff272727);
 const juce::Colour kButtonFaceBright = juce::Colour(0xff3b3b3b);
 const juce::Colour kButtonBorder     = juce::Colour(0xff111111);
-const juce::Colour kJackBlue         = juce::Colour(0xff68a7ff);
 const juce::Colour kJackGreen        = juce::Colour(0xff7ce381);
-const juce::Colour kWoodLight        = juce::Colour(0xff8a6347);
-const juce::Colour kWoodDark         = juce::Colour(0xff493222);
 const juce::Colour kCableWarm        = juce::Colour(0xff9d564d);
 const juce::Colour kCableDark        = juce::Colour(0xff383838);
+
+constexpr float kPanelSourceWidth = 1689.0f;
+constexpr float kPanelSourceHeight = 931.0f;
+constexpr const char* kPanelControlId = "panel-control";
 
 juce::File getDefaultPresetDirectory()
 {
@@ -68,71 +57,6 @@ juce::Font makeFont(float height, bool bold = false)
     return juce::Font(options);
 }
 
-void drawLabel(juce::Graphics& g, juce::Rectangle<float> area, const juce::String& text,
-               float fontHeight, juce::Justification justification = juce::Justification::centred)
-{
-    g.setColour(kInk);
-    g.setFont(makeFont(fontHeight, false));
-    g.drawFittedText(text, area.toNearestInt(), justification, 1);
-}
-
-void drawSectionHeader(juce::Graphics& g, juce::Rectangle<float> area, const juce::String& text)
-{
-    g.setColour(kInk);
-    g.setFont(makeFont(24.0f, false));
-    g.drawFittedText(text, area.toNearestInt(), juce::Justification::centred, 1);
-}
-
-void drawScrew(juce::Graphics& g, juce::Point<float> centre)
-{
-    auto outer = juce::Rectangle<float>(22.0f, 22.0f).withCentre(centre);
-    juce::ColourGradient grad(juce::Colour(0xff7c7c7c), outer.getX(), outer.getY(),
-                              juce::Colour(0xff2c2c2c), outer.getRight(), outer.getBottom(), true);
-    g.setGradientFill(grad);
-    g.fillEllipse(outer);
-
-    g.setColour(juce::Colour(0x70000000));
-    g.drawEllipse(outer, 1.2f);
-
-    g.setColour(juce::Colour(0xff1a1a1a));
-    g.drawLine(centre.x - 4.5f, centre.y - 4.0f, centre.x + 4.5f, centre.y + 4.0f, 1.2f);
-    g.drawLine(centre.x - 4.0f, centre.y + 4.5f, centre.x + 4.0f, centre.y - 4.5f, 1.2f);
-}
-
-void drawPassiveButton(juce::Graphics& g, juce::Rectangle<float> area, const juce::String& label,
-                       juce::Colour ledColour = juce::Colours::transparentBlack, bool ledActive = false)
-{
-    juce::ColourGradient fill(kButtonFaceBright, area.getX(), area.getY(),
-                              kButtonFace, area.getRight(), area.getBottom(), true);
-    g.setGradientFill(fill);
-    g.fillRoundedRectangle(area, 4.0f);
-
-    g.setColour(kButtonBorder);
-    g.drawRoundedRectangle(area, 4.0f, 1.2f);
-
-    auto led = area.withSizeKeepingCentre(10.0f, 10.0f).translated(0.0f, 1.0f);
-    if (ledActive)
-    {
-        g.setColour(ledColour.withAlpha(0.22f));
-        g.fillEllipse(led.expanded(8.0f));
-        g.setColour(ledColour);
-        g.fillEllipse(led);
-    }
-    else
-    {
-        g.setColour(juce::Colour(0xff343434));
-        g.fillEllipse(led);
-    }
-
-    if (label.isNotEmpty())
-    {
-        g.setColour(kInk);
-        g.setFont(makeFont(area.getWidth() < 54.0f ? 11.5f : 16.0f, false));
-        g.drawFittedText(label, area.translated(0.0f, area.getHeight() + 6.0f).toNearestInt(),
-                         juce::Justification::centred, 2);
-    }
-}
-
 std::array<PatchPoint, 7> inputOrder()
 {
     return { PP_VCA_CV, PP_VCA_DECAY, PP_VCF_MOD, PP_VCF_DECAY, PP_NOISE_LVL, PP_VCO_DECAY, PP_FM_AMT };
@@ -141,6 +65,33 @@ std::array<PatchPoint, 7> inputOrder()
 std::array<PatchPoint, 7> outputOrder()
 {
     return { PP_VCA_EG, PP_VCF_EG, PP_VCO_EG, PP_VCO1, PP_VCO2, PP_VELOCITY, PP_PITCH };
+}
+
+void drawPanelToggle(juce::Graphics& g, juce::Rectangle<float> bounds, int selectedIndex, int numPositions)
+{
+    bounds = bounds.reduced(0.8f);
+    g.setColour(juce::Colour(0x99000000));
+    g.fillRoundedRectangle(bounds.translated(1.4f, 2.0f), 2.5f);
+
+    juce::ColourGradient slot(juce::Colour(0xff4a4945), bounds.getX(), bounds.getY(),
+                              juce::Colour(0xff151515), bounds.getRight(), bounds.getBottom(), true);
+    g.setGradientFill(slot);
+    g.fillRoundedRectangle(bounds, 2.5f);
+    g.setColour(juce::Colour(0xff050505));
+    g.drawRoundedRectangle(bounds, 2.5f, 1.0f);
+
+    const auto segmentW = bounds.getWidth() / (float) numPositions;
+    auto handle = bounds.withX(bounds.getX() + segmentW * (float) selectedIndex).withWidth(segmentW).reduced(1.2f);
+    juce::ColourGradient handleFill(juce::Colour(0xff343330), handle.getX(), handle.getY(),
+                                    juce::Colour(0xff111111), handle.getRight(), handle.getBottom(), true);
+    g.setGradientFill(handleFill);
+    g.fillRoundedRectangle(handle, 2.0f);
+    g.setColour(juce::Colour(0x44000000));
+    g.drawRoundedRectangle(handle, 2.0f, 1.0f);
+
+    auto redDot = juce::Rectangle<float>(4.4f, 4.4f).withCentre({ handle.getRight() - 9.0f, handle.getCentreY() - 0.5f });
+    g.setColour(juce::Colour(0xff78342d));
+    g.fillEllipse(redDot);
 }
 }
 
@@ -156,64 +107,43 @@ DFAFLookAndFeel::DFAFLookAndFeel()
     setColour(juce::TextButton::textColourOnId, juce::Colour(0xfff3ede1));
 }
 
+bool DFAFLookAndFeel::isPanelControl(const juce::Component& component)
+{
+    return component.getComponentID().startsWith(kPanelControlId);
+}
+
 void DFAFLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
                                        float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
-                                       juce::Slider&)
+                                       juce::Slider& slider)
 {
-    const auto bounds = juce::Rectangle<float>((float) x, (float) y, (float) width, (float) height).reduced(4.0f);
-    const auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    if (slider.getProperties().getWithDefault("hidePanelIndicator", false))
+        return;
+
+    const auto bounds = juce::Rectangle<float>((float) x, (float) y, (float) width, (float) height);
+    const auto diameter = juce::jmin(bounds.getWidth(), bounds.getHeight());
     const auto centre = bounds.getCentre();
 
-    g.setColour(juce::Colour(0x25000000));
-    g.fillEllipse(bounds.translated(0.0f, 10.0f));
-
-    auto body = bounds.reduced(radius * 0.13f);
-    const auto bodyRadius = body.getWidth() * 0.5f;
-
-    g.setColour(juce::Colour(0xff141414));
-    g.fillEllipse(body.expanded(2.0f));
-
-    juce::ColourGradient outerGrad(juce::Colour(0xff4f4f4f), body.getX(), body.getY(),
-                                   juce::Colour(0xff1c1c1c), body.getRight(), body.getBottom(), true);
-    g.setGradientFill(outerGrad);
-    g.fillEllipse(body);
-
-    for (int i = 0; i < 16; ++i)
-    {
-        const float angle = juce::MathConstants<float>::twoPi * (float) i / 16.0f;
-        const float x0 = centre.x + std::cos(angle) * (bodyRadius + 2.0f);
-        const float y0 = centre.y + std::sin(angle) * (bodyRadius + 2.0f);
-        const float x1 = centre.x + std::cos(angle) * (bodyRadius + 8.0f);
-        const float y1 = centre.y + std::sin(angle) * (bodyRadius + 8.0f);
-        g.setColour(juce::Colour(0x9a222222));
-        g.drawLine(x0, y0, x1, y1, 1.5f);
-    }
-
-    auto cap = body.reduced(body.getWidth() * 0.17f);
-    juce::ColourGradient capGrad(juce::Colour(0xff4a4a4a), cap.getX(), cap.getY(),
-                                 juce::Colour(0xff222222), cap.getRight(), cap.getBottom(), true);
-    g.setGradientFill(capGrad);
-    g.fillEllipse(cap);
-
-    g.setColour(juce::Colour(0x55ffffff));
-    g.drawEllipse(cap, 1.0f);
-
     const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-    const float indicatorAngle = angle - juce::MathConstants<float>::halfPi;
-    const float innerR = cap.getWidth() * 0.14f;
-    const float outerR = cap.getWidth() * 0.40f;
+    const float offset = (float) slider.getProperties().getWithDefault("panelIndicatorOffset", 0.0);
+    const float indicatorAngle = angle - juce::MathConstants<float>::halfPi + offset;
+    const float innerR = diameter * (float) slider.getProperties().getWithDefault("panelIndicatorInner", 0.08);
+    const float outerR = diameter * (float) slider.getProperties().getWithDefault("panelIndicatorOuter", 0.28);
+    const float lineWidth = (float) slider.getProperties().getWithDefault("panelIndicatorWidth", 3.0);
     const juce::Point<float> p0(centre.x + std::cos(indicatorAngle) * innerR,
                                 centre.y + std::sin(indicatorAngle) * innerR);
     const juce::Point<float> p1(centre.x + std::cos(indicatorAngle) * outerR,
                                 centre.y + std::sin(indicatorAngle) * outerR);
 
     g.setColour(juce::Colour(0xffefefef));
-    g.drawLine(p0.x, p0.y, p1.x, p1.y, 3.0f);
+    g.drawLine(p0.x, p0.y, p1.x, p1.y, lineWidth);
 }
 
 void DFAFLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour&,
                                            bool isMouseOverButton, bool isButtonDown)
 {
+    if (isPanelControl(button))
+        return;
+
     auto area = button.getLocalBounds().toFloat().reduced(0.5f);
     auto top = isButtonDown ? juce::Colour(0xff2b2b2b) : kButtonFaceBright;
     auto bottom = isButtonDown ? juce::Colour(0xff161616) : kButtonFace;
@@ -231,14 +161,20 @@ void DFAFLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& butt
 void DFAFLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& button,
                                      bool, bool)
 {
+    if (isPanelControl(button))
+        return;
+
     g.setColour(button.findColour(juce::TextButton::textColourOffId));
     g.setFont(makeFont(18.0f, true));
     g.drawFittedText(button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, 1);
 }
 
 void DFAFLookAndFeel::drawComboBox(juce::Graphics& g, int width, int height, bool,
-                                   int, int, int, int, juce::ComboBox&)
+                                   int, int, int, int, juce::ComboBox& box)
 {
+    if (isPanelControl(box))
+        return;
+
     auto area = juce::Rectangle<float>(0.0f, 0.0f, (float) width, (float) height).reduced(0.5f);
     juce::ColourGradient fill(kButtonFaceBright, area.getX(), area.getY(),
                               kButtonFace, area.getRight(), area.getBottom(), true);
@@ -266,7 +202,8 @@ void DFAFLookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label& lab
 {
     label.setFont(getComboBoxFont(box));
     label.setJustificationType(juce::Justification::centred);
-    label.setColour(juce::Label::textColourId, juce::Colour(0xfff3ede1));
+    label.setColour(juce::Label::textColourId, isPanelControl(box) ? juce::Colours::transparentBlack
+                                                                    : juce::Colour(0xfff3ede1));
     label.setBounds(2, 1, box.getWidth() - 22, box.getHeight() - 2);
 }
 
@@ -275,6 +212,8 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
 {
     setSize(kEditorWidth, kEditorHeight);
     setLookAndFeel(&laf);
+    panelImage = juce::ImageCache::getFromMemory(BinaryData::ig_0b9a34b24e54dfb20169ecc11305388191ac4d2979b55f8ab8_png,
+                                                 BinaryData::ig_0b9a34b24e54dfb20169ecc11305388191ac4d2979b55f8ab8_pngSize);
     startTimerHz(30);
 
     presetBox.setJustificationType(juce::Justification::centred);
@@ -322,6 +261,9 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         refreshPresetControls();
     };
 
+    presetSaveButton.setComponentID(kPanelControlId);
+    presetDeleteButton.setComponentID(kPanelControlId);
+    presetInitButton.setComponentID(kPanelControlId);
     addAndMakeVisible(presetSaveButton);
     addAndMakeVisible(presetDeleteButton);
     addAndMakeVisible(presetInitButton);
@@ -333,6 +275,7 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         resetLedActive = true;
         repaint();
     };
+    resetButton.setComponentID(kPanelControlId);
     addAndMakeVisible(resetButton);
 
     auto add = [this](juce::Slider& s, bool small = false)
@@ -362,22 +305,32 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     seqPitchModBox.addItem("VCO 1&2", 1);
     seqPitchModBox.addItem("OFF", 2);
     seqPitchModBox.addItem("VCO 2", 3);
+    seqPitchModBox.setComponentID(kPanelControlId);
+    seqPitchModBox.onChange = [this]() { repaint(); };
     addAndMakeVisible(seqPitchModBox);
 
     hardSyncBox.addItem("OFF", 1);
     hardSyncBox.addItem("ON", 2);
+    hardSyncBox.setComponentID(kPanelControlId);
+    hardSyncBox.onChange = [this]() { repaint(); };
     addAndMakeVisible(hardSyncBox);
 
     vco1WaveBox.addItem("SQUARE", 1);
     vco1WaveBox.addItem("TRIANGLE", 2);
+    vco1WaveBox.setComponentID(kPanelControlId);
+    vco1WaveBox.onChange = [this]() { repaint(); };
     addAndMakeVisible(vco1WaveBox);
 
     vco2WaveBox.addItem("SQUARE", 1);
     vco2WaveBox.addItem("TRIANGLE", 2);
+    vco2WaveBox.setComponentID(kPanelControlId);
+    vco2WaveBox.onChange = [this]() { repaint(); };
     addAndMakeVisible(vco2WaveBox);
 
     vcfModeBox.addItem("LP", 1);
     vcfModeBox.addItem("HP", 2);
+    vcfModeBox.setComponentID(kPanelControlId);
+    vcfModeBox.onChange = [this]() { repaint(); };
     addAndMakeVisible(vcfModeBox);
 
     clockMultBox.addItem("1/8", 1);
@@ -390,6 +343,8 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     clockMultBox.addItem("3X", 8);
     clockMultBox.addItem("4X", 9);
     clockMultBox.addItem("5X", 10);
+    clockMultBox.setComponentID(kPanelControlId);
+    clockMultBox.onChange = [this]() { repaint(); };
     addAndMakeVisible(clockMultBox);
 
     for (int i = 0; i < 8; ++i)
@@ -533,46 +488,52 @@ void DFAFEditor::updatePresetButtonState()
     presetDeleteButton.setEnabled(hasSavedPreset);
 }
 
-juce::Rectangle<int> DFAFEditor::getContentBounds() const
+juce::Rectangle<float> DFAFEditor::getPanelImageBounds() const
 {
-    return getLocalBounds().reduced(kOuterMargin);
+    const auto scale = juce::jmin((float) getWidth() / kPanelSourceWidth,
+                                 (float) getHeight() / kPanelSourceHeight);
+    const auto w = kPanelSourceWidth * scale;
+    const auto h = kPanelSourceHeight * scale;
+    return { ((float) getWidth() - w) * 0.5f, ((float) getHeight() - h) * 0.5f, w, h };
 }
 
-juce::Rectangle<int> DFAFEditor::getMainPanelBounds() const
+juce::Rectangle<int> DFAFEditor::mapPanelRect(float x, float y, float w, float h) const
 {
-    auto bounds = getContentBounds().withTrimmedLeft(kWoodWidth).withTrimmedRight(kWoodWidth);
-    bounds.removeFromBottom(kUtilityHeight);
-    return bounds;
+    const auto panel = getPanelImageBounds();
+    const auto scale = panel.getWidth() / kPanelSourceWidth;
+    return juce::Rectangle<float>(panel.getX() + x * scale,
+                                  panel.getY() + y * scale,
+                                  w * scale,
+                                  h * scale).toNearestInt();
 }
 
-juce::Rectangle<int> DFAFEditor::getUtilityAreaBounds() const
+juce::Point<int> DFAFEditor::mapPanelPoint(float x, float y) const
 {
-    auto bounds = getContentBounds().withTrimmedLeft(kWoodWidth).withTrimmedRight(kWoodWidth);
-    return bounds.removeFromBottom(kUtilityHeight);
+    const auto panel = getPanelImageBounds();
+    const auto scale = panel.getWidth() / kPanelSourceWidth;
+    return { juce::roundToInt(panel.getX() + x * scale),
+             juce::roundToInt(panel.getY() + y * scale) };
 }
 
 juce::Rectangle<int> DFAFEditor::getPatchAreaBounds() const
 {
-    auto main = getMainPanelBounds().reduced(18, 16);
-    return main.removeFromRight(kPatchWidth);
+    return mapPanelRect(1388.0f, 110.0f, 211.0f, 708.0f);
 }
 
 juce::Point<int> DFAFEditor::getJackCentre(PatchPoint pp) const
 {
-    const auto area = getPatchAreaBounds();
     const auto inputs = inputOrder();
     const auto outputs = outputOrder();
-    const int inX = area.getX() + 56;
-    const int outX = area.getRight() - 56;
-    const int topY = area.getY() + 94;
-    const int rowGap = juce::roundToInt((float) (area.getHeight() - 148) / 6.0f);
+    constexpr std::array<float, 7> ys { 216.0f, 305.0f, 394.0f, 482.0f, 572.0f, 661.0f, 750.0f };
+    constexpr float inX = 1442.0f;
+    constexpr float outX = 1543.0f;
 
     for (int i = 0; i < 7; ++i)
     {
         if (outputs[(size_t) i] == pp)
-            return { outX, topY + rowGap * i };
+            return mapPanelPoint(outX, ys[(size_t) i]);
         if (inputs[(size_t) i] == pp)
-            return { inX, topY + rowGap * i };
+            return mapPanelPoint(inX, ys[(size_t) i]);
     }
 
     return { -1, -1 };
@@ -640,52 +601,19 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, juce::Rectangle<int> area,
                                const std::vector<PatchCable>& cables,
                                PatchPoint selectedOut) const
 {
-    auto panel = area.toFloat().reduced(4.0f, 8.0f);
-
-    g.setColour(kDividerSoft);
-    g.drawLine(panel.getX() - 12.0f, panel.getY(), panel.getX() - 12.0f, panel.getBottom(), 1.0f);
-
-    g.setColour(kPanelCream.brighter(0.05f));
-    g.fillRoundedRectangle(panel, 8.0f);
-    g.setColour(kDivider);
-    g.drawRoundedRectangle(panel, 8.0f, 1.0f);
-
-    g.setColour(kDividerSoft);
-    g.drawLine(panel.getCentreX(), panel.getY() + 20.0f, panel.getCentreX(), panel.getBottom() - 18.0f, 1.0f);
-
-    g.setColour(kInk);
-    g.setFont(makeFont(12.0f, true));
-    g.drawFittedText("IN", juce::Rectangle<int>(area.getX() + 30, area.getY() + 16, 56, 18), juce::Justification::centred, 1);
-    g.drawFittedText("OUT", juce::Rectangle<int>(area.getRight() - 86, area.getY() + 16, 56, 18), juce::Justification::centred, 1);
-    g.setColour(kDivider);
-    g.drawLine((float) area.getX() + 14.0f, (float) area.getY() + 25.0f, (float) area.getX() + 30.0f, (float) area.getY() + 25.0f, 1.0f);
-    g.drawLine((float) area.getX() + 86.0f, (float) area.getY() + 25.0f, panel.getCentreX() - 10.0f, (float) area.getY() + 25.0f, 1.0f);
-    g.drawLine(panel.getCentreX() + 10.0f, (float) area.getY() + 25.0f, (float) area.getRight() - 86.0f, (float) area.getY() + 25.0f, 1.0f);
-    g.drawLine((float) area.getRight() - 30.0f, (float) area.getY() + 25.0f, (float) area.getRight() - 14.0f, (float) area.getY() + 25.0f, 1.0f);
+    juce::ignoreUnused(area);
 
     auto drawJack = [&](PatchPoint pp, juce::Point<int> centre, bool isOutput)
     {
+        juce::ignoreUnused(isOutput);
         const auto c = juce::Point<float>((float) centre.x, (float) centre.y);
         auto outer = juce::Rectangle<float>(24.0f, 24.0f).withCentre(c);
-
-        g.setColour(juce::Colour(0xff181818));
-        g.fillEllipse(outer);
-        g.setColour(juce::Colour(0xff5f5f5f));
-        g.drawEllipse(outer, 1.3f);
-        g.setColour(juce::Colour(0xff8f8f8f));
-        g.fillEllipse(outer.reduced(7.0f));
 
         if (selectedOut == pp)
         {
             g.setColour(juce::Colour(0xffffd268));
             g.drawEllipse(outer.expanded(4.0f), 2.0f);
         }
-
-        auto labelBounds = juce::Rectangle<float>(76.0f, 18.0f);
-        labelBounds = labelBounds.withCentre({ isOutput ? c.x : c.x, c.y - 34.0f });
-        g.setColour(kInk.withAlpha(0.82f));
-        g.setFont(makeFont(10.0f, true));
-        g.drawFittedText(kPatchMeta[pp].name, labelBounds.toNearestInt(), juce::Justification::centred, 2);
     };
 
     const auto inputs = inputOrder();
@@ -761,161 +689,63 @@ void DFAFEditor::setupKnob(juce::Slider& s, bool small)
     s.setRange(0.0, 1.0);
     s.setValue(0.5);
     s.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    s.setComponentID(kPanelControlId);
+    s.setRotaryParameters(juce::MathConstants<float>::pi * 1.18f,
+                          juce::MathConstants<float>::pi * 2.82f,
+                          true);
+    s.getProperties().set("panelIndicatorInner", 0.06);
+    s.getProperties().set("panelIndicatorOuter", small ? 0.25 : 0.27);
+    s.getProperties().set("panelIndicatorWidth", small ? 2.2 : 2.6);
+    s.onValueChange = [this]() { repaint(); };
     if (small)
         s.setScrollWheelEnabled(false);
+}
+
+void DFAFEditor::drawPanelSwitches(juce::Graphics& g) const
+{
+    drawPanelToggle(g, mapPanelRect(231.0f, 182.0f, 96.0f, 33.0f).toFloat(),
+                    juce::jlimit(0, 2, seqPitchModBox.getSelectedItemIndex()), 3);
+    drawPanelToggle(g, mapPanelRect(631.0f, 171.0f, 54.0f, 30.0f).toFloat(),
+                    juce::jlimit(0, 1, vco1WaveBox.getSelectedItemIndex()), 2);
+    drawPanelToggle(g, mapPanelRect(958.0f, 191.0f, 43.0f, 31.0f).toFloat(),
+                    juce::jlimit(0, 1, vcfModeBox.getSelectedItemIndex()), 2);
+    drawPanelToggle(g, mapPanelRect(250.0f, 405.0f, 52.0f, 31.0f).toFloat(),
+                    juce::jlimit(0, 1, hardSyncBox.getSelectedItemIndex()), 2);
+    drawPanelToggle(g, mapPanelRect(631.0f, 395.0f, 54.0f, 30.0f).toFloat(),
+                    juce::jlimit(0, 1, vco2WaveBox.getSelectedItemIndex()), 2);
+
+    if (resetLedActive)
+    {
+        auto led = mapPanelRect(183.0f, 704.0f, 9.0f, 9.0f).toFloat();
+        g.setColour(kLedRed.withAlpha(0.28f));
+        g.fillEllipse(led.expanded(5.0f));
+        g.setColour(kLedRed);
+        g.fillEllipse(led);
+    }
 }
 
 void DFAFEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xffd9d6d0));
+    const auto panel = getPanelImageBounds();
+    if (panelImage.isValid())
+        g.drawImage(panelImage, panel);
+    else
+        g.fillAll(kPanelCream);
 
-    auto bounds = getLocalBounds().toFloat();
-    auto content = getContentBounds().toFloat();
-    auto face = content.withTrimmedLeft((float) kWoodWidth).withTrimmedRight((float) kWoodWidth);
-    auto mainPanel = getMainPanelBounds().toFloat();
-    auto utility = getUtilityAreaBounds().toFloat();
+    drawPanelSwitches(g);
 
-    g.setColour(juce::Colour(0x33000000));
-    g.fillEllipse(bounds.withTrimmedTop(bounds.getHeight() * 0.78f));
-
-    g.setColour(kCaseOuter);
-    g.fillRoundedRectangle(content.expanded(8.0f), 8.0f);
-
-    juce::ColourGradient woodGrad(kWoodLight, content.getX(), content.getY(),
-                                  kWoodDark, content.getRight(), content.getBottom(), true);
-    g.setGradientFill(woodGrad);
-    g.fillRoundedRectangle(content.withWidth((float) kWoodWidth + 10.0f), 10.0f);
-    g.fillRoundedRectangle(content.withWidth((float) kWoodWidth + 10.0f).withRightX(content.getRight()), 10.0f);
-
-    juce::ColourGradient faceGrad(kPanelCream.brighter(0.03f), face.getCentreX(), face.getY(),
-                                  kPanelWarm, face.getCentreX(), face.getBottom(), true);
-    g.setGradientFill(faceGrad);
-    g.fillRoundedRectangle(face, 5.0f);
-    g.setColour(juce::Colour(0x18ffffff));
-    g.fillEllipse(face.withSizeKeepingCentre(face.getWidth() * 0.95f, face.getHeight() * 1.03f));
-    g.setColour(kDivider);
-    g.drawRoundedRectangle(face, 5.0f, 1.0f);
-
-    drawScrew(g, { face.getX() + 14.0f, face.getY() + 14.0f });
-    drawScrew(g, { face.getRight() - 14.0f, face.getY() + 14.0f });
-    drawScrew(g, { face.getX() + 14.0f, face.getBottom() - 14.0f });
-    drawScrew(g, { face.getRight() - 14.0f, face.getBottom() - 14.0f });
-
-    auto layout = getMainPanelBounds().reduced(18, 16);
-    auto patchArea = layout.removeFromRight(kPatchWidth);
-    layout.removeFromRight(12);
-    auto topArea = layout.removeFromTop(180);
-    auto midArea = layout.removeFromTop(180);
-    layout.removeFromTop(10);
-    auto bottomArea = layout;
-
-    g.setColour(kDivider);
-    g.drawLine((float) topArea.getX(), (float) topArea.getBottom(), (float) patchArea.getX() - 10.0f, (float) topArea.getBottom(), 1.0f);
-    g.drawLine((float) midArea.getX(), (float) midArea.getBottom(), (float) patchArea.getX() - 10.0f, (float) midArea.getBottom(), 1.0f);
-    g.drawLine(face.getX() + 18.0f, utility.getY(), face.getRight() - 18.0f, utility.getY(), 1.0f);
-
-    g.setColour(kInk);
-    g.setFont(makeFont(14.0f, false));
-    g.drawText("DFA", juce::Rectangle<int>((int) face.getX() + 28, (int) face.getY() + 18, 74, 28), juce::Justification::centredLeft);
-    g.setColour(kAccentRed);
-    g.drawText("F", juce::Rectangle<int>((int) face.getX() + 96, (int) face.getY() + 18, 24, 28), juce::Justification::centredLeft);
-
-    auto drawCaptionUnder = [&](const juce::Component& c, const juce::String& text, float size = 11.0f)
-    {
-        auto b = c.getBounds().toFloat();
-        drawLabel(g, { b.getX() - 10.0f, b.getBottom() + 4.0f, b.getWidth() + 20.0f, 16.0f }, text, size);
-    };
-
-    auto drawCaptionAbove = [&](const juce::Component& c, const juce::String& text, float size = 11.0f)
-    {
-        auto b = c.getBounds().toFloat();
-        drawLabel(g, { b.getX() - 10.0f, b.getY() - 18.0f, b.getWidth() + 20.0f, 14.0f }, text, size);
-    };
-
-    drawCaptionAbove(vcoDecay, "VCO DECAY");
-    drawCaptionAbove(seqPitchModBox, "SEQ PITCH MOD");
-    drawCaptionAbove(vco1EgAmount, "VCO 1 EG AMT");
-    drawCaptionAbove(vco1Frequency, "VCO 1 FREQ");
-    drawCaptionAbove(vco1WaveBox, "VCO 1 WAVE");
-    drawCaptionAbove(vco1Level, "VCO 1 LEVEL");
-    drawCaptionAbove(noiseLevel, "NOISE LEVEL");
-    drawCaptionAbove(vcfModeBox, "VCF MODE");
-    drawCaptionAbove(cutoff, "CUTOFF");
-    drawCaptionAbove(resonance, "RESONANCE");
-    drawCaptionAbove(vcaEg, "VCA EG");
-
-    drawCaptionAbove(fmAmount, "FM AMT");
-    drawCaptionAbove(hardSyncBox, "HARD SYNC");
-    drawCaptionAbove(vco2EgAmount, "VCO 2 EG AMT");
-    drawCaptionAbove(vco2Frequency, "VCO 2 FREQ");
-    drawCaptionAbove(vco2WaveBox, "VCO 2 WAVE");
-    drawCaptionAbove(vco2Level, "VCO 2 LEVEL");
-    drawCaptionAbove(vcfDecay, "VCF DECAY");
-    drawCaptionAbove(vcfEgAmount, "VCF EG AMT");
-    drawCaptionAbove(noiseVcfMod, "NOISE VCF MOD");
-    drawCaptionAbove(vcaDecay, "VCA DECAY");
-
-    drawCaptionUnder(volume, "VOLUME");
-    drawCaptionUnder(resetButton, "RESET", 12.0f);
-
-    g.setColour(kDividerSoft);
-    g.drawLine((float) midArea.getX() + midArea.getWidth() * 0.58f, (float) midArea.getY() + 8.0f,
-               (float) midArea.getX() + midArea.getWidth() * 0.58f, (float) midArea.getBottom() - 10.0f, 1.0f);
-
-    auto transportArea = bottomArea.removeFromLeft(190);
-    bottomArea.removeFromLeft(16);
-    auto brandArea = bottomArea.removeFromRight(220);
-    bottomArea.removeFromRight(10);
-    auto seqArea = bottomArea;
-
-    g.setColour(kInk);
-    g.setFont(makeFont(13.0f, false));
-    g.drawText("CLOCK / TRANSPORT", juce::Rectangle<int>(transportArea.getX() + 6, transportArea.getY() + 8, 160, 18), juce::Justification::centredLeft);
-    drawCaptionAbove(clockMultBox, "CLOCK MULT", 10.5f);
-
-    g.drawLine((float) transportArea.getRight() - 8.0f, (float) transportArea.getY() + 34.0f,
-               (float) transportArea.getRight() - 8.0f, (float) transportArea.getBottom() - 10.0f, 1.0f);
-
-    g.drawText("PITCH", juce::Rectangle<int>(seqArea.getX() + 6, seqArea.getY() + 86, 60, 16), juce::Justification::centredLeft);
-    g.drawText("VELOCITY", juce::Rectangle<int>(seqArea.getX() - 8, seqArea.getY() + 164, 78, 16), juce::Justification::centredLeft);
-
-    const int seqLabelWidth = 56;
-    const int seqStartX = seqArea.getX() + seqLabelWidth + 20;
-    const float seqStep = (float) (seqArea.getWidth() - seqLabelWidth - 28) / 8.0f;
-    g.setFont(makeFont(12.0f, false));
     for (int i = 0; i < 8; ++i)
     {
-        const float cx = seqStartX + seqStep * ((float) i + 0.5f);
-        g.drawText(juce::String(i + 1), juce::Rectangle<int>((int) cx - 10, seqArea.getY() + 12, 20, 16), juce::Justification::centred);
-        g.setColour(i == currentLedStep ? kLedRed : juce::Colour(0xffb14841));
+        const auto led = mapPanelRect(409.0f + 86.0f * (float) i, 571.0f, 9.0f, 9.0f).toFloat();
         if (i == currentLedStep)
-            g.fillEllipse(cx - 3.5f, (float) seqArea.getY() + 36.0f, 7.0f, 7.0f);
-        else
-            g.drawEllipse(cx - 3.5f, (float) seqArea.getY() + 36.0f, 7.0f, 7.0f, 1.2f);
-        g.setColour(kDividerSoft);
-        if (i < 8)
-            g.drawLine(cx + seqStep * 0.5f, (float) seqArea.getY() + 34.0f, cx + seqStep * 0.5f, (float) seqArea.getBottom() - 18.0f, 1.0f);
-        g.setColour(kInk);
+        {
+            g.setColour(kLedRed.withAlpha(0.28f));
+            g.fillEllipse(led.expanded(5.0f));
+            g.setColour(kLedRed);
+            g.fillEllipse(led);
+        }
     }
-
-    g.setColour(kInk);
-    g.setFont(makeFont(42.0f, true));
-    g.drawText("DFAF", juce::Rectangle<int>(brandArea.getX() + 16, brandArea.getY() + 56, brandArea.getWidth() - 20, 46), juce::Justification::centredLeft);
-    g.setColour(kAccentRed);
-    g.setFont(makeFont(13.0f, false));
-    g.drawText("DRUMMER FROM", juce::Rectangle<int>(brandArea.getX() + 20, brandArea.getY() + 118, 150, 18), juce::Justification::centredLeft);
-    g.drawText("ANOTHER FATHER", juce::Rectangle<int>(brandArea.getX() + 20, brandArea.getY() + 136, 160, 18), juce::Justification::centredLeft);
-    g.setColour(kDivider);
-    g.drawLine((float) brandArea.getX() + 20.0f, (float) brandArea.getY() + 162.0f, (float) brandArea.getRight() - 24.0f, (float) brandArea.getY() + 162.0f, 1.0f);
-    g.setColour(kInk);
-    g.setFont(makeFont(11.0f, false));
-    g.drawText("SEMI-MODULAR", juce::Rectangle<int>(brandArea.getX() + 20, brandArea.getY() + 172, 120, 16), juce::Justification::centredLeft);
-    g.drawText("PERCUSSION", juce::Rectangle<int>(brandArea.getX() + 20, brandArea.getY() + 188, 120, 16), juce::Justification::centredLeft);
-    g.drawText("VST SYNTHESIZER", juce::Rectangle<int>(brandArea.getX() + 20, brandArea.getY() + 204, 150, 16), juce::Justification::centredLeft);
-
-    g.setColour(kInk.withAlpha(0.82f));
-    g.setFont(makeFont(12.0f, false));
-    g.drawText("PRESET", juce::Rectangle<int>((int) utility.getX() + 8, (int) utility.getY() + 24, 60, 16), juce::Justification::centredLeft);
 
     std::vector<PatchCable> cables;
     processor.getCableSnapshot(cables);
@@ -924,82 +754,48 @@ void DFAFEditor::paint(juce::Graphics& g)
 
 void DFAFEditor::resized()
 {
-    auto main = getMainPanelBounds().reduced(18, 16);
-    auto patch = main.removeFromRight(kPatchWidth);
-    main.removeFromRight(12);
-    auto top = main.removeFromTop(180);
-    auto mid = main.removeFromTop(180);
-    main.removeFromTop(10);
-    auto bottom = main;
-
-    auto setKnobCentre = [](juce::Slider& slider, int cx, int cy, int size)
+    auto setKnobCentre = [this](juce::Slider& slider, float cx, float cy, float size)
     {
-        slider.setBounds(cx - size / 2, cy - size / 2, size, size);
+        slider.setBounds(mapPanelRect(cx - size * 0.5f, cy - size * 0.5f, size, size));
     };
 
-    auto layoutTopRow = [&](juce::Rectangle<int> area)
-    {
-        auto inner = area.reduced(8, 12);
-        const float unit = (float) inner.getWidth() / 12.0f;
-        const int knobY = inner.getY() + 94;
-        const int comboY = inner.getY() + 88;
-        setKnobCentre(vcoDecay, inner.getX() + juce::roundToInt(unit * 0.55f), knobY, 58);
-        seqPitchModBox.setBounds(inner.getX() + juce::roundToInt(unit * 1.35f), comboY, 96, 30);
-        setKnobCentre(vco1EgAmount, inner.getX() + juce::roundToInt(unit * 2.85f), knobY, 58);
-        setKnobCentre(vco1Frequency, inner.getX() + juce::roundToInt(unit * 4.02f), knobY, 72);
-        vco1WaveBox.setBounds(inner.getX() + juce::roundToInt(unit * 4.85f), comboY, 68, 30);
-        setKnobCentre(vco1Level, inner.getX() + juce::roundToInt(unit * 6.10f), knobY, 56);
-        setKnobCentre(noiseLevel, inner.getX() + juce::roundToInt(unit * 7.15f), knobY, 56);
-        vcfModeBox.setBounds(inner.getX() + juce::roundToInt(unit * 7.90f), comboY, 60, 30);
-        setKnobCentre(cutoff, inner.getX() + juce::roundToInt(unit * 9.10f), knobY, 70);
-        setKnobCentre(resonance, inner.getX() + juce::roundToInt(unit * 10.18f), knobY, 58);
-        setKnobCentre(vcaEg, inner.getX() + juce::roundToInt(unit * 11.18f), knobY, 58);
-    };
+    setKnobCentre(vcoDecay, 151.0f, 184.0f, 62.0f);
+    setKnobCentre(vco1EgAmount, 400.0f, 184.0f, 62.0f);
+    setKnobCentre(vco1Frequency, 529.0f, 184.0f, 82.0f);
+    setKnobCentre(vco1Level, 765.0f, 184.0f, 60.0f);
+    setKnobCentre(noiseLevel, 884.0f, 184.0f, 60.0f);
+    setKnobCentre(cutoff, 1084.0f, 184.0f, 78.0f);
+    setKnobCentre(resonance, 1196.0f, 184.0f, 62.0f);
+    setKnobCentre(vcaEg, 1303.0f, 184.0f, 62.0f);
 
-    auto layoutMidRow = [&](juce::Rectangle<int> area)
-    {
-        auto inner = area.reduced(8, 14);
-        const float unit = (float) inner.getWidth() / 12.0f;
-        const int knobY = inner.getY() + 92;
-        const int comboY = inner.getY() + 86;
-        setKnobCentre(fmAmount, inner.getX() + juce::roundToInt(unit * 0.55f), knobY, 58);
-        hardSyncBox.setBounds(inner.getX() + juce::roundToInt(unit * 1.50f), comboY, 54, 30);
-        setKnobCentre(vco2EgAmount, inner.getX() + juce::roundToInt(unit * 2.85f), knobY, 58);
-        setKnobCentre(vco2Frequency, inner.getX() + juce::roundToInt(unit * 4.02f), knobY, 72);
-        vco2WaveBox.setBounds(inner.getX() + juce::roundToInt(unit * 4.85f), comboY, 68, 30);
-        setKnobCentre(vco2Level, inner.getX() + juce::roundToInt(unit * 6.10f), knobY, 56);
-        setKnobCentre(vcfDecay, inner.getX() + juce::roundToInt(unit * 7.30f), knobY, 58);
-        setKnobCentre(vcfEgAmount, inner.getX() + juce::roundToInt(unit * 8.55f), knobY, 58);
-        setKnobCentre(noiseVcfMod, inner.getX() + juce::roundToInt(unit * 9.82f), knobY, 58);
-        setKnobCentre(vcaDecay, inner.getX() + juce::roundToInt(unit * 11.05f), knobY, 58);
-    };
+    setKnobCentre(fmAmount, 151.0f, 407.0f, 62.0f);
+    setKnobCentre(vco2EgAmount, 400.0f, 407.0f, 62.0f);
+    setKnobCentre(vco2Frequency, 529.0f, 407.0f, 82.0f);
+    setKnobCentre(vco2Level, 765.0f, 407.0f, 60.0f);
+    setKnobCentre(vcfDecay, 889.0f, 407.0f, 62.0f);
+    setKnobCentre(vcfEgAmount, 1024.0f, 407.0f, 62.0f);
+    setKnobCentre(noiseVcfMod, 1156.0f, 407.0f, 62.0f);
+    setKnobCentre(vcaDecay, 1284.0f, 407.0f, 62.0f);
 
-    layoutTopRow(top);
-    layoutMidRow(mid);
+    setKnobCentre(volume, 185.0f, 640.0f, 76.0f);
+    clockMultBox.setBounds(mapPanelRect(130.0f, 593.0f, 116.0f, 90.0f));
+    resetButton.setBounds(mapPanelRect(163.0f, 724.0f, 45.0f, 40.0f));
 
-    auto transport = bottom.removeFromLeft(190);
-    bottom.removeFromLeft(16);
-    auto brand = bottom.removeFromRight(220);
-    bottom.removeFromRight(10);
-    auto seq = bottom;
+    seqPitchModBox.setBounds(mapPanelRect(231.0f, 182.0f, 96.0f, 34.0f));
+    vco1WaveBox.setBounds(mapPanelRect(631.0f, 171.0f, 54.0f, 51.0f));
+    vcfModeBox.setBounds(mapPanelRect(958.0f, 171.0f, 43.0f, 51.0f));
+    hardSyncBox.setBounds(mapPanelRect(250.0f, 405.0f, 52.0f, 58.0f));
+    vco2WaveBox.setBounds(mapPanelRect(631.0f, 395.0f, 54.0f, 51.0f));
 
-    clockMultBox.setBounds(transport.getX() + 18, transport.getY() + 54, 116, 32);
-    resetButton.setBounds(transport.getX() + 40, transport.getY() + 176, 72, 34);
-    setKnobCentre(volume, brand.getX() + 108, brand.getY() + 124, 52);
-
-    const int seqLabelWidth = 56;
-    const int seqStartX = seq.getX() + seqLabelWidth + 20;
-    const float seqStep = (float) (seq.getWidth() - seqLabelWidth - 28) / 8.0f;
     for (int i = 0; i < 8; ++i)
     {
-        const int cx = juce::roundToInt(seqStartX + seqStep * ((float) i + 0.5f));
-        setKnobCentre(stepPitch[i], cx, seq.getY() + 108, 50);
-        setKnobCentre(stepVelocity[i], cx, seq.getY() + 188, 50);
+        const float cx = 411.0f + 86.5f * (float) i;
+        setKnobCentre(stepPitch[i], cx, 619.0f, 50.0f);
+        setKnobCentre(stepVelocity[i], cx, 698.0f, 50.0f);
     }
 
-    auto utility = getUtilityAreaBounds().reduced(18, 12);
-    presetBox.setBounds(utility.getX() + 54, utility.getY() + 14, 220, 32);
-    presetSaveButton.setBounds(utility.getX() + 420, utility.getY() + 14, 58, 32);
-    presetDeleteButton.setBounds(utility.getX() + 486, utility.getY() + 14, 64, 32);
-    presetInitButton.setBounds(utility.getX() + 568, utility.getY() + 14, 58, 32);
+    presetBox.setBounds(mapPanelRect(178.0f, 815.0f, 258.0f, 42.0f));
+    presetSaveButton.setBounds(mapPanelRect(648.0f, 827.0f, 34.0f, 28.0f));
+    presetDeleteButton.setBounds(mapPanelRect(724.0f, 827.0f, 42.0f, 28.0f));
+    presetInitButton.setBounds(mapPanelRect(799.0f, 827.0f, 37.0f, 28.0f));
 }

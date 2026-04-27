@@ -117,6 +117,8 @@ public:
     // Sequencer clock state
     int  lastStep            = -1;
     int  sequencerStepOffset = 0;
+    bool wasHostPlaying      = false;
+    bool sequencerResetArmed = true;
     std::atomic<bool> sequencerResetPending { false };
     DFAFVoice       voice;
         MoogLadderFilter filter;

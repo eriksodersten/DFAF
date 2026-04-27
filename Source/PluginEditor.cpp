@@ -195,7 +195,9 @@ void DFAFLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int widt
 
     const auto bounds = juce::Rectangle<float>((float) x, (float) y, (float) width, (float) height);
     const auto diameter = juce::jmin(bounds.getWidth(), bounds.getHeight());
-    const auto centre = bounds.getCentre();
+    const auto centre = bounds.getCentre()
+        + juce::Point<float>((float) slider.getProperties().getWithDefault("panelIndicatorCentreX", 0.0),
+                             (float) slider.getProperties().getWithDefault("panelIndicatorCentreY", 0.0));
 
     const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
     const float offset = (float) slider.getProperties().getWithDefault("panelIndicatorOffset", 0.0);
@@ -292,6 +294,7 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
 
     presetBox.setJustificationType(juce::Justification::centred);
     presetBox.setColour(juce::ComboBox::textColourId, kLedRed);
+    presetBox.setComponentID(kPanelControlId);
     presetBox.onChange = [this]()
     {
         if (isUpdatingPresetBox)
@@ -310,6 +313,8 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
     };
     addAndMakeVisible(presetBox);
 
+    presetPrevButton.onClick = [this]() { stepPreset(-1); };
+    presetNextButton.onClick = [this]() { stepPreset(1); };
     presetSaveButton.onClick = [this]() { promptSavePreset(); };
     presetDeleteButton.onClick = [this]()
     {
@@ -335,9 +340,13 @@ DFAFEditor::DFAFEditor(DFAFProcessor& p)
         refreshPresetControls();
     };
 
+    presetPrevButton.setComponentID(kPanelControlId);
+    presetNextButton.setComponentID(kPanelControlId);
     presetSaveButton.setComponentID(kPanelControlId);
     presetDeleteButton.setComponentID(kPanelControlId);
     presetInitButton.setComponentID(kPanelControlId);
+    addAndMakeVisible(presetPrevButton);
+    addAndMakeVisible(presetNextButton);
     addAndMakeVisible(presetSaveButton);
     addAndMakeVisible(presetDeleteButton);
     addAndMakeVisible(presetInitButton);
@@ -513,6 +522,7 @@ void DFAFEditor::refreshPresetControls()
 
     lastPresetName = currentPreset;
     updatePresetButtonState();
+    repaint();
 }
 
 void DFAFEditor::promptSavePreset()
@@ -550,6 +560,27 @@ void DFAFEditor::promptSavePreset()
                                        processor.savePreset(result.getFileNameWithoutExtension());
                                        refreshPresetControls();
                                    });
+}
+
+void DFAFEditor::stepPreset(int direction)
+{
+    const auto presetNames = processor.getAvailablePresetNames();
+    const int numPresetSlots = presetNames.size() + 1;
+    if (numPresetSlots <= 0)
+        return;
+
+    int currentIndex = 0;
+    const auto currentPreset = processor.getCurrentPresetName();
+    if (currentPreset.isNotEmpty() && currentPreset != "Init")
+    {
+        const int userIndex = presetNames.indexOf(currentPreset);
+        if (userIndex >= 0)
+            currentIndex = userIndex + 1;
+    }
+
+    const int nextIndex = (currentIndex + direction + numPresetSlots) % numPresetSlots;
+    presetBox.setSelectedId(nextIndex == 0 ? kPresetInitId : kPresetFirstUserId + nextIndex - 1,
+                            juce::sendNotification);
 }
 
 void DFAFEditor::updatePresetButtonState()
@@ -898,6 +929,57 @@ void DFAFEditor::drawPanelSwitches(juce::Graphics& g) const
     }
 }
 
+void DFAFEditor::drawPresetDisplay(juce::Graphics& g) const
+{
+    auto screenArea = mapPanelRect(183.0f, 816.0f, 250.0f, 40.0f).toFloat();
+    auto textArea = mapPanelRect(207.0f, 821.0f, 208.0f, 28.0f).toFloat();
+    auto selectedId = presetBox.getSelectedId();
+    if (selectedId == 0)
+        selectedId = kPresetInitId;
+
+    const int displayNumber = selectedId == kPresetMissingId ? 999 : juce::jlimit(1, 999, selectedId);
+    auto name = presetBox.getText().trim();
+    if (name.isEmpty())
+        name = "INIT";
+
+    auto displayText = juce::String(displayNumber).paddedLeft('0', 3)
+        + "  "
+        + name.replaceCharacter('*', ' ').trim().toUpperCase();
+
+    const auto fontHeight = textArea.getHeight() * 0.64f;
+    auto font = juce::Font(juce::FontOptions("Menlo", fontHeight, juce::Font::plain))
+        .withHorizontalScale(0.94f);
+
+    g.setColour(juce::Colour(0xff0a0b0a));
+    g.fillRoundedRectangle(screenArea, 2.0f);
+    g.setColour(juce::Colour(0xff151310));
+    g.fillRoundedRectangle(screenArea.reduced(3.0f, 3.0f), 1.2f);
+    g.setColour(juce::Colour(0x55000000));
+    g.fillRoundedRectangle(screenArea.withTrimmedTop(screenArea.getHeight() * 0.52f).reduced(3.0f, 1.0f), 1.0f);
+
+    g.saveState();
+    g.reduceClipRegion(screenArea.toNearestInt());
+
+    g.setFont(font);
+
+    for (int i = 0; i < 4; ++i)
+    {
+        const auto y = screenArea.getY() + 6.0f + (float) i * 7.0f;
+        g.setColour(juce::Colour(0x22000000));
+        g.drawLine(screenArea.getX() + 4.0f, y, screenArea.getRight() - 4.0f, y, 1.0f);
+    }
+
+    g.setColour(juce::Colour(0xffff1f18).withAlpha(0.20f));
+    g.drawText(displayText, textArea.translated(-0.8f, 0.0f), juce::Justification::centredLeft, false);
+    g.drawText(displayText, textArea.translated(0.8f, 0.0f), juce::Justification::centredLeft, false);
+    g.setColour(juce::Colour(0xffff3a2f).withAlpha(0.94f));
+    g.drawText(displayText, textArea, juce::Justification::centredLeft, false);
+    g.setColour(juce::Colour(0xffff8a78).withAlpha(0.34f));
+    g.drawText(displayText, textArea.translated(0.0f, -0.7f), juce::Justification::centredLeft, false);
+
+    g.restoreState();
+}
+
 void DFAFEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xffd9d6d0));
@@ -908,6 +990,7 @@ void DFAFEditor::paint(juce::Graphics& g)
         g.fillAll(kPanelCream);
 
     drawPanelSwitches(g);
+    drawPresetDisplay(g);
 
     for (int i = 0; i < 8; ++i)
     {
@@ -934,8 +1017,13 @@ void DFAFEditor::resized()
     };
 
     setKnobCentre(vcoDecay, 151.0f, 184.0f, 62.0f);
+    vcoDecay.getProperties().set("panelIndicatorCentreX", -2.0);
+    vcoDecay.getProperties().set("panelIndicatorCentreY", -2.0);
     setKnobCentre(vco1EgAmount, 400.0f, 184.0f, 62.0f);
+    vco1EgAmount.getProperties().set("panelIndicatorCentreX", -1.0);
     setKnobCentre(vco1Frequency, 529.0f, 184.0f, 82.0f);
+    vco1Frequency.getProperties().set("panelIndicatorCentreX", -1.5);
+    vco1Frequency.getProperties().set("panelIndicatorCentreY", -3.0);
     setKnobCentre(vco1Level, 765.0f, 184.0f, 60.0f);
     setKnobCentre(noiseLevel, 884.0f, 184.0f, 60.0f);
     setKnobCentre(cutoff, 1084.0f, 184.0f, 78.0f);
@@ -943,8 +1031,13 @@ void DFAFEditor::resized()
     setKnobCentre(vcaEg, 1303.0f, 184.0f, 62.0f);
 
     setKnobCentre(fmAmount, 151.0f, 407.0f, 62.0f);
+    fmAmount.getProperties().set("panelIndicatorCentreX", -2.0);
+    fmAmount.getProperties().set("panelIndicatorCentreY", -2.0);
     setKnobCentre(vco2EgAmount, 400.0f, 407.0f, 62.0f);
+    vco2EgAmount.getProperties().set("panelIndicatorCentreX", -1.0);
     setKnobCentre(vco2Frequency, 529.0f, 407.0f, 82.0f);
+    vco2Frequency.getProperties().set("panelIndicatorCentreX", -1.5);
+    vco2Frequency.getProperties().set("panelIndicatorCentreY", -3.0);
     setKnobCentre(vco2Level, 765.0f, 407.0f, 60.0f);
     setKnobCentre(vcfDecay, 889.0f, 407.0f, 62.0f);
     setKnobCentre(vcfEgAmount, 1024.0f, 407.0f, 62.0f);
@@ -969,6 +1062,8 @@ void DFAFEditor::resized()
     }
 
     presetBox.setBounds(mapPanelRect(178.0f, 815.0f, 258.0f, 42.0f));
+    presetPrevButton.setBounds(mapPanelRect(482.0f, 816.0f, 37.0f, 42.0f));
+    presetNextButton.setBounds(mapPanelRect(538.0f, 816.0f, 37.0f, 42.0f));
     presetSaveButton.setBounds(mapPanelRect(648.0f, 827.0f, 34.0f, 28.0f));
     presetDeleteButton.setBounds(mapPanelRect(724.0f, 827.0f, 42.0f, 28.0f));
     presetInitButton.setBounds(mapPanelRect(799.0f, 827.0f, 37.0f, 28.0f));

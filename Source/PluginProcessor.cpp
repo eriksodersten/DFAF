@@ -643,17 +643,37 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
         {
             double samplePpq = ppqPosition + (double)i * bpm / (60.0 * currentSampleRate);
             int hostStep = (int)(samplePpq / ppqPerStep) % DFAFSequencer::numSteps;
+            const bool transportJustStarted = !wasHostPlaying;
 
             if (sequencerResetPending.exchange(false, std::memory_order_acq_rel))
             {
-                sequencerStepOffset = (DFAFSequencer::numSteps - hostStep) % DFAFSequencer::numSteps;
+                sequencerResetArmed = true;
+            }
+            else if (transportJustStarted)
+            {
+                const int previousStep = sequencer.getCurrentStep();
+                const int targetStep = sequencerResetArmed || previousStep < 0
+                    ? 0
+                    : (previousStep + 1) % DFAFSequencer::numSteps;
+
+                sequencerStepOffset = (targetStep - hostStep + DFAFSequencer::numSteps) % DFAFSequencer::numSteps;
+                sequencerResetArmed = false;
                 lastStep = -1;
             }
+
+            wasHostPlaying = true;
 
             int currentStep = (hostStep + sequencerStepOffset) % DFAFSequencer::numSteps;
 
             if (currentStep != lastStep)
             {
+                if (sequencerResetArmed)
+                {
+                    sequencerStepOffset = (DFAFSequencer::numSteps - hostStep) % DFAFSequencer::numSteps;
+                    sequencerResetArmed = false;
+                    currentStep = 0;
+                }
+
                 lastStep = currentStep;
                 sequencer.setCurrentStep(currentStep);
                 const auto& step = sequencer.getStep(currentStep);
@@ -670,8 +690,10 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
             {
                 sequencerStepOffset = 0;
                 sequencer.setCurrentStep(0);
+                sequencerResetArmed = true;
             }
 
+            wasHostPlaying = false;
             lastStep = -1;
         }
 

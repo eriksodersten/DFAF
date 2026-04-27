@@ -44,6 +44,8 @@ private:
     juce::Image panelImage;
 
     juce::ComboBox presetBox;
+    juce::TextButton presetPrevButton { "PREV" };
+    juce::TextButton presetNextButton { "NEXT" };
     juce::TextButton presetSaveButton { "SAVE" };
     juce::TextButton presetDeleteButton { "DELETE" };
     juce::TextButton presetInitButton { "INIT" };
@@ -72,10 +74,12 @@ private:
     void setupKnob(juce::Slider& slider, bool small = false);
     void refreshPresetControls();
     void promptSavePreset();
+    void stepPreset(int direction);
     void updatePresetButtonState();
     juce::Rectangle<float> getPanelImageBounds() const;
     juce::Rectangle<int> mapPanelRect(float x, float y, float w, float h) const;
     juce::Point<int> mapPanelPoint(float x, float y) const;
+    void drawPresetDisplay(juce::Graphics& g) const;
     void drawPanelSwitches(juce::Graphics& g) const;
 
     juce::Rectangle<int> getPatchAreaBounds() const;

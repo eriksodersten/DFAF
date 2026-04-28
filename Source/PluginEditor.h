@@ -67,6 +67,9 @@ private:
     juce::Slider stepPitch[8];
     juce::Slider stepVelocity[8];
     juce::ComboBox vco1WaveBox, vco2WaveBox, vcfModeBox;
+    juce::TextButton vco1WaveButton { "VCO 1 WAVE" };
+    juce::TextButton vco2WaveButton { "VCO 2 WAVE" };
+    juce::TextButton vcfModeButton { "VCF MODE" };
 
     int currentLedStep = -1;
     bool resetLedActive = false;

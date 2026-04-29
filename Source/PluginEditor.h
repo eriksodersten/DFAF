@@ -63,7 +63,7 @@ private:
     juce::Slider fmAmount, vco2EgAmount, vco2Frequency;
     juce::Slider vco2Level, vcfDecay, vcfEgAmount, noiseVcfMod, vcaDecay;
 
-    juce::ComboBox clockMultBox;
+    juce::Slider clockMult;
     juce::Slider stepPitch[8];
     juce::Slider stepVelocity[8];
     juce::ComboBox vco1WaveBox, vco2WaveBox, vcfModeBox;
@@ -115,7 +115,7 @@ private:
     std::unique_ptr<SliderAttachment> noiseLevelAtt, cutoffAtt, resonanceAtt;
     std::unique_ptr<SliderAttachment> vcfDecayAtt, vcfEgAmtAtt, noiseVcfModAtt;
     std::unique_ptr<SliderAttachment> vcaDecayAtt, vcaEgAtt, volumeAtt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> clockMultBoxAtt;
+    std::unique_ptr<SliderAttachment> clockMultAtt;
     std::unique_ptr<SliderAttachment> stepPitchAtt[8], stepVelAtt[8];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DFAFEditor)

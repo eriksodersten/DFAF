@@ -46,7 +46,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParamet
     params.push_back(std::make_unique<juce::AudioParameterFloat>("preTrim",     "Pre Trim",      0.1f,  2.0f,    0.84f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("volume",      "Volume",        0.0f,  1.0f,    0.8f));
     params.push_back(std::make_unique<juce::AudioParameterChoice>("clockMult", "Clock Multiplier",
-                juce::StringArray({ "1/8", "1/5", "1/4", "1/3", "1/2", "1x", "2x", "3x", "4x", "5x" }), 5));
+                juce::StringArray({ "1/5", "1/4", "1/3", "1/2", "1x", "2x", "3x", "4x", "8x" }), 4));
     for (int i = 0; i < 8; ++i)
         {
             params.push_back(std::make_unique<juce::AudioParameterFloat>(
@@ -556,8 +556,10 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 }
             }
 
-    int multIndex = (int)apvts.getRawParameterValue("clockMult")->load();
-            const float multTable[] = { 8.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.5f, 1.0f/3.0f, 0.25f, 0.2f };
+    int multIndex = juce::jlimit(0, 8, (int)apvts.getRawParameterValue("clockMult")->load());
+            const bool clockMultChanged = lastClockMultIndex >= 0 && multIndex != lastClockMultIndex;
+            lastClockMultIndex = multIndex;
+            const float multTable[] = { 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.5f, 1.0f/3.0f, 0.25f, 0.125f };
             float mult = multTable[multIndex];
             float ppqPerStep = 0.25f * mult;
     float cutoffVal   = apvts.getRawParameterValue("cutoff")->load();
@@ -636,6 +638,7 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
     auto* left  = buffer.getWritePointer(0);
     auto* right = buffer.getWritePointer(1);
+    bool clockMultChangePending = clockMultChanged;
 
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
@@ -659,6 +662,18 @@ void DFAFProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuf
                 sequencerStepOffset = (targetStep - hostStep + DFAFSequencer::numSteps) % DFAFSequencer::numSteps;
                 sequencerResetArmed = false;
                 lastStep = -1;
+            }
+
+            if (clockMultChangePending && !transportJustStarted && !sequencerResetArmed)
+            {
+                const int heldStep = sequencer.getCurrentStep();
+                if (heldStep >= 0)
+                {
+                    sequencerStepOffset = (heldStep - hostStep + DFAFSequencer::numSteps) % DFAFSequencer::numSteps;
+                    lastStep = heldStep;
+                }
+
+                clockMultChangePending = false;
             }
 
             wasHostPlaying = true;

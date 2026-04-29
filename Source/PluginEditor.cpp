@@ -987,13 +987,13 @@ void DFAFEditor::drawPanelSwitches(juce::Graphics& g) const
 
     drawPanelToggle(g, mapPanelRect(639.0f, 152.0f, 53.0f, 33.0f).toFloat(),
                     wavePanelIndex(vco1WaveBox.getSelectedItemIndex()), 2);
-    drawPanelToggle(g, mapPanelRect(965.0f, 152.0f, 51.0f, 34.0f).toFloat(),
+    drawPanelToggle(g, mapPanelRect(965.0f, 153.0f, 51.0f, 33.0f).toFloat(),
                     juce::jlimit(0, 1, vcfModeBox.getSelectedItemIndex()), 2);
 
     drawPanelToggle(g, mapPanelRect(237.0f, 388.0f, 58.0f, 34.0f).toFloat(),
                     juce::jlimit(0, 1, hardSyncBox.getSelectedItemIndex()), 2);
 
-    drawPanelToggle(g, mapPanelRect(638.0f, 386.0f, 55.0f, 34.0f).toFloat(),
+    drawPanelToggle(g, mapPanelRect(638.0f, 389.0f, 55.0f, 34.0f).toFloat(),
                     wavePanelIndex(vco2WaveBox.getSelectedItemIndex()), 2);
 
     if (resetLedActive)
@@ -1100,30 +1100,30 @@ void DFAFEditor::resized()
     vcoDecay.getProperties().set("panelIndicatorCentreY", -2.0);
     setKnobCentre(vco1EgAmount, 398.0f, 169.0f, 62.0f);
     vco1EgAmount.getProperties().set("panelIndicatorCentreX", -1.0);
-    setKnobCentre(vco1Frequency, 539.0f, 174.0f, 82.0f);
+    setKnobCentre(vco1Frequency, 539.0f, 169.0f, 82.0f);
     vco1Frequency.getProperties().set("panelIndicatorCentreX", -1.5);
-    vco1Frequency.getProperties().set("panelIndicatorCentreY", -3.0);
+    vco1Frequency.getProperties().set("panelIndicatorCentreY", 0.0);
     setKnobCentre(vco1Level, 773.0f, 169.0f, 60.0f);
     setKnobCentre(noiseLevel, 886.0f, 170.0f, 60.0f);
-    setKnobCentre(cutoff, 1110.0f, 174.0f, 78.0f);
+    setKnobCentre(cutoff, 1110.0f, 170.0f, 78.0f);
     setKnobCentre(resonance, 1225.0f, 169.0f, 62.0f);
-    setKnobCentre(vcaEg, 1342.0f, 170.0f, 62.0f);
+    setKnobCentre(vcaEg, 1360.0f, 170.0f, 62.0f);
 
     setKnobCentre(fmAmount, 136.0f, 404.0f, 62.0f);
     fmAmount.getProperties().set("panelIndicatorCentreX", -2.0);
     fmAmount.getProperties().set("panelIndicatorCentreY", -2.0);
     setKnobCentre(vco2EgAmount, 396.0f, 404.0f, 62.0f);
     vco2EgAmount.getProperties().set("panelIndicatorCentreX", -1.0);
-    setKnobCentre(vco2Frequency, 540.0f, 410.0f, 82.0f);
+    setKnobCentre(vco2Frequency, 540.0f, 405.0f, 82.0f);
     vco2Frequency.getProperties().set("panelIndicatorCentreX", -1.5);
-    vco2Frequency.getProperties().set("panelIndicatorCentreY", -3.0);
+    vco2Frequency.getProperties().set("panelIndicatorCentreY", 0.0);
     setKnobCentre(vco2Level, 772.0f, 405.0f, 60.0f);
-    setKnobCentre(vcfDecay, 890.0f, 405.0f, 62.0f);
-    setKnobCentre(vcfEgAmount, 1005.0f, 404.0f, 62.0f);
-    setKnobCentre(noiseVcfMod, 1121.0f, 404.0f, 62.0f);
-    setKnobCentre(vcaDecay, 1227.0f, 405.0f, 62.0f);
+    setKnobCentre(vcfDecay, 936.0f, 405.0f, 62.0f);
+    setKnobCentre(vcfEgAmount, 1074.0f, 404.0f, 62.0f);
+    setKnobCentre(noiseVcfMod, 1204.0f, 404.0f, 62.0f);
+    setKnobCentre(vcaDecay, 1360.0f, 317.0f, 62.0f);
 
-    setKnobCentre(volume, 1342.0f, 462.0f, 62.0f);
+    setKnobCentre(volume, 1360.0f, 462.0f, 62.0f);
     clockMultBox.setBounds(mapPanelRect(118.0f, 594.0f, 116.0f, 90.0f));
     resetButton.setBounds(mapPanelRect(154.0f, 733.0f, 45.0f, 36.0f));
 
@@ -1131,11 +1131,11 @@ void DFAFEditor::resized()
     seqPitchModButton.setBounds(seqPitchModBox.getBounds());
     vco1WaveBox.setBounds(mapPanelRect(639.0f, 152.0f, 53.0f, 73.0f));
     vco1WaveButton.setBounds(vco1WaveBox.getBounds());
-    vcfModeBox.setBounds(mapPanelRect(965.0f, 152.0f, 51.0f, 74.0f));
+    vcfModeBox.setBounds(mapPanelRect(965.0f, 153.0f, 51.0f, 73.0f));
     vcfModeButton.setBounds(vcfModeBox.getBounds());
-    hardSyncBox.setBounds(mapPanelRect(237.0f, 388.0f, 58.0f, 67.0f));
+    hardSyncBox.setBounds(mapPanelRect(237.0f, 388.0f, 58.0f, 66.0f));
     hardSyncButton.setBounds(hardSyncBox.getBounds());
-    vco2WaveBox.setBounds(mapPanelRect(638.0f, 386.0f, 55.0f, 74.0f));
+    vco2WaveBox.setBounds(mapPanelRect(638.0f, 389.0f, 55.0f, 71.0f));
     vco2WaveButton.setBounds(vco2WaveBox.getBounds());
 
     constexpr std::array<float, 8> stepXs { 424.0f, 517.0f, 608.0f, 699.0f,

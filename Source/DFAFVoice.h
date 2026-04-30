@@ -39,9 +39,7 @@ public:
     void setVcfDecayTime(float seconds)
     {
         vcfDecaySeconds = seconds;
-        float vcfDecayScaled = vcfDecaySeconds * (1.0f - vel * 0.5f);
-        vcfDecayScaled = juce::jmax(0.01f, vcfDecayScaled);
-        vcfEnvelope.setDecayTime(vcfDecayScaled);
+        vcfEnvelope.setDecayTime(juce::jmax(0.01f, vcfDecaySeconds));
     }
     void setFmAmount(float amount)        { fm = amount; smoothedFm.setTargetValue(fm); }
     void setVco1EgAmount(float semitones) { vco1EgAmt = semitones; }

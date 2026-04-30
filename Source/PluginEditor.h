@@ -50,6 +50,8 @@ private:
     juce::TextButton presetDeleteButton { "DELETE" };
     juce::TextButton presetInitButton { "INIT" };
     std::unique_ptr<juce::FileChooser> presetSaveChooser;
+    std::unique_ptr<juce::AlertWindow> presetSaveChoiceWindow;
+    std::unique_ptr<juce::Component> presetSaveChoiceArt;
     juce::String lastPresetName;
     bool isUpdatingPresetBox = false;
 
@@ -79,6 +81,7 @@ private:
     void setupKnob(juce::Slider& slider, bool small = false);
     void refreshPresetControls();
     void promptSavePreset();
+    void showSavePresetChooser(const juce::String& suggestedName);
     void stepPreset(int direction);
     void updatePresetButtonState();
     juce::Rectangle<float> getPanelImageBounds() const;

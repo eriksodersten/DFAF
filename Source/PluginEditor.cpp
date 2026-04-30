@@ -60,6 +60,107 @@ juce::Font makeFont(float height, bool bold = false)
     return juce::Font(options);
 }
 
+class RoyalCatSaveArt final : public juce::Component
+{
+public:
+    RoyalCatSaveArt()
+    {
+        setSize(340, 150);
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        auto area = getLocalBounds().toFloat().reduced(10.0f);
+
+        g.setColour(juce::Colour(0xfff7efd9));
+        g.fillRoundedRectangle(area, 8.0f);
+        g.setColour(juce::Colour(0xffc7a85e));
+        g.drawRoundedRectangle(area, 8.0f, 1.5f);
+
+        drawCat(g, area.removeFromLeft(area.getWidth() * 0.48f).reduced(8.0f));
+        drawKing(g, area.reduced(8.0f));
+    }
+
+private:
+    static void drawCat(juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const auto head = juce::Rectangle<float>(84.0f, 70.0f).withCentre({ area.getCentreX(), area.getCentreY() + 8.0f });
+        const auto leftEar = juce::Point<float>(head.getX() + 15.0f, head.getY() + 8.0f);
+        const auto rightEar = juce::Point<float>(head.getRight() - 15.0f, head.getY() + 8.0f);
+
+        juce::Path face;
+        face.startNewSubPath(leftEar);
+        face.lineTo(head.getX() + 24.0f, head.getY() - 20.0f);
+        face.lineTo(head.getX() + 38.0f, head.getY() + 2.0f);
+        face.lineTo(head.getRight() - 38.0f, head.getY() + 2.0f);
+        face.lineTo(head.getRight() - 24.0f, head.getY() - 20.0f);
+        face.lineTo(rightEar);
+        face.cubicTo(head.getRight() + 10.0f, head.getY() + 34.0f,
+                     head.getRight() - 10.0f, head.getBottom() + 8.0f,
+                     head.getCentreX(), head.getBottom() + 8.0f);
+        face.cubicTo(head.getX() + 10.0f, head.getBottom() + 8.0f,
+                     head.getX() - 10.0f, head.getY() + 34.0f,
+                     leftEar.x, leftEar.y);
+        face.closeSubPath();
+
+        g.setColour(juce::Colour(0xffffc16e));
+        g.fillPath(face);
+        g.setColour(juce::Colour(0xff6b4a27));
+        g.strokePath(face, juce::PathStrokeType(2.0f));
+
+        g.setColour(juce::Colour(0xff2b221c));
+        g.fillEllipse(head.getCentreX() - 24.0f, head.getCentreY() - 8.0f, 8.0f, 12.0f);
+        g.fillEllipse(head.getCentreX() + 16.0f, head.getCentreY() - 8.0f, 8.0f, 12.0f);
+
+        g.setColour(juce::Colour(0xffff7d89));
+        g.fillEllipse(head.getCentreX() - 5.0f, head.getCentreY() + 9.0f, 10.0f, 7.0f);
+
+        g.setColour(juce::Colour(0xff6b4a27));
+        g.drawLine(head.getCentreX() - 30.0f, head.getCentreY() + 12.0f, head.getCentreX() - 58.0f, head.getCentreY() + 5.0f, 1.3f);
+        g.drawLine(head.getCentreX() - 30.0f, head.getCentreY() + 20.0f, head.getCentreX() - 58.0f, head.getCentreY() + 23.0f, 1.3f);
+        g.drawLine(head.getCentreX() + 30.0f, head.getCentreY() + 12.0f, head.getCentreX() + 58.0f, head.getCentreY() + 5.0f, 1.3f);
+        g.drawLine(head.getCentreX() + 30.0f, head.getCentreY() + 20.0f, head.getCentreX() + 58.0f, head.getCentreY() + 23.0f, 1.3f);
+    }
+
+    static void drawKing(juce::Graphics& g, juce::Rectangle<float> area)
+    {
+        const auto centre = area.getCentre();
+        const auto portrait = juce::Rectangle<float>(82.0f, 74.0f).withCentre({ centre.x, centre.y + 12.0f });
+
+        g.setColour(juce::Colour(0xff2f5fb8));
+        g.fillRoundedRectangle(portrait.withY(portrait.getY() + 34.0f).expanded(10.0f, 4.0f), 12.0f);
+        g.setColour(juce::Colour(0xffffd84a));
+        g.drawLine(portrait.getX() - 6.0f, portrait.getBottom() - 12.0f,
+                   portrait.getRight() + 6.0f, portrait.getBottom() - 42.0f, 5.0f);
+
+        g.setColour(juce::Colour(0xffffd2a1));
+        g.fillEllipse(portrait.withHeight(66.0f).reduced(8.0f, 0.0f));
+        g.setColour(juce::Colour(0xff6b4a27));
+        g.drawEllipse(portrait.withHeight(66.0f).reduced(8.0f, 0.0f), 1.7f);
+
+        juce::Path crown;
+        const auto y = portrait.getY() - 9.0f;
+        crown.startNewSubPath(portrait.getX() + 12.0f, y + 25.0f);
+        crown.lineTo(portrait.getX() + 21.0f, y);
+        crown.lineTo(portrait.getX() + 36.0f, y + 21.0f);
+        crown.lineTo(portrait.getCentreX(), y - 8.0f);
+        crown.lineTo(portrait.getRight() - 36.0f, y + 21.0f);
+        crown.lineTo(portrait.getRight() - 21.0f, y);
+        crown.lineTo(portrait.getRight() - 12.0f, y + 25.0f);
+        crown.closeSubPath();
+        g.setColour(juce::Colour(0xffffd447));
+        g.fillPath(crown);
+        g.setColour(juce::Colour(0xff8b6f16));
+        g.strokePath(crown, juce::PathStrokeType(1.6f));
+
+        g.setColour(juce::Colour(0xff2b221c));
+        g.fillEllipse(portrait.getCentreX() - 22.0f, portrait.getY() + 28.0f, 6.0f, 6.0f);
+        g.fillEllipse(portrait.getCentreX() + 16.0f, portrait.getY() + 28.0f, 6.0f, 6.0f);
+        g.drawLine(portrait.getCentreX() - 12.0f, portrait.getY() + 48.0f,
+                   portrait.getCentreX() + 12.0f, portrait.getY() + 48.0f, 1.4f);
+    }
+};
+
 std::array<PatchPoint, 7> inputOrder()
 {
     return { PP_VCA_CV, PP_VCA_DECAY, PP_VCF_MOD, PP_VCF_DECAY, PP_NOISE_LVL, PP_VCO_DECAY, PP_FM_AMT };
@@ -608,16 +709,55 @@ void DFAFEditor::promptSavePreset()
         && currentPreset != "Init"
         && processor.getAvailablePresetNames().contains(currentPreset))
     {
-        processor.saveCurrentPreset();
-        refreshPresetControls();
+        presetSaveChoiceWindow.reset();
+        presetSaveChoiceArt.reset();
+
+        presetSaveChoiceArt = std::make_unique<RoyalCatSaveArt>();
+        presetSaveChoiceWindow = std::make_unique<juce::AlertWindow>("Save DFAF Preset",
+                                                                     "Save changes to \"" + currentPreset + "\"?",
+                                                                     juce::AlertWindow::NoIcon,
+                                                                     this);
+        presetSaveChoiceWindow->addCustomComponent(presetSaveChoiceArt.get());
+        presetSaveChoiceWindow->addButton("Overwrite", 1);
+        presetSaveChoiceWindow->addButton("Save As...", 2);
+        presetSaveChoiceWindow->addButton("Cancel", 0);
+
+        juce::Component::SafePointer<DFAFEditor> safeThis(this);
+        presetSaveChoiceWindow->enterModalState(true,
+                                                juce::ModalCallbackFunction::create([safeThis, currentPreset](int result)
+                                                {
+                                                    if (safeThis == nullptr)
+                                                        return;
+
+                                                    auto* editor = safeThis.getComponent();
+                                                    editor->presetSaveChoiceWindow.reset();
+                                                    editor->presetSaveChoiceArt.reset();
+
+                                                    if (result == 1)
+                                                    {
+                                                        editor->processor.saveCurrentPreset();
+                                                        editor->refreshPresetControls();
+                                                    }
+                                                    else if (result == 2)
+                                                    {
+                                                        editor->showSavePresetChooser(currentPreset + " Copy");
+                                                    }
+                                                }),
+                                                false);
+
         return;
     }
 
+    showSavePresetChooser(currentPreset == "Init" ? juce::String("New Preset") : currentPreset);
+}
+
+void DFAFEditor::showSavePresetChooser(const juce::String& suggestedName)
+{
     auto presetDirectory = getDefaultPresetDirectory();
     presetDirectory.createDirectory();
 
-    const auto suggestedName = currentPreset == "Init" ? juce::String("New Preset") : currentPreset;
-    const auto suggestedFile = presetDirectory.getChildFile(suggestedName + ".dfafpreset");
+    const auto fallbackName = suggestedName.isNotEmpty() ? suggestedName : juce::String("New Preset");
+    const auto suggestedFile = presetDirectory.getChildFile(fallbackName + ".dfafpreset");
 
     presetSaveChooser = std::make_unique<juce::FileChooser>("Save DFAF Preset",
                                                             suggestedFile,

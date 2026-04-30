@@ -974,7 +974,7 @@ void DFAFEditor::setupKnob(juce::Slider& s, bool small)
     s.setRotaryParameters(juce::MathConstants<float>::pi * 1.18f,
                           juce::MathConstants<float>::pi * 2.82f,
                           true);
-    s.getProperties().set("panelIndicatorInner", 0.06);
+    s.getProperties().set("panelIndicatorInner", 0.0);
     s.getProperties().set("panelIndicatorOuter", small ? 0.25 : 0.27);
     s.getProperties().set("panelIndicatorWidth", small ? 2.2 : 2.6);
     s.onValueChange = [this]() { repaint(); };
@@ -1072,18 +1072,46 @@ void DFAFEditor::paint(juce::Graphics& g)
     drawPanelSwitches(g);
     drawPresetDisplay(g);
 
+    auto drawActiveLed = [this, &g](float cx, float cy)
+    {
+        const auto led = mapPanelRect(cx - 4.5f, cy - 4.5f, 9.0f, 9.0f).toFloat();
+        g.setColour(kLedRed.withAlpha(0.28f));
+        g.fillEllipse(led.expanded(5.0f));
+        g.setColour(kLedRed);
+        g.fillEllipse(led);
+        g.setColour(juce::Colour(0xffffd0bd).withAlpha(0.65f));
+        g.fillEllipse(led.reduced(2.7f).translated(-0.8f, -0.8f));
+    };
+
+    constexpr std::array<juce::Point<float>, 9> clockMultLedCentres {
+        juce::Point<float> { 130.3f, 704.5f }, // 1/5
+        juce::Point<float> { 116.6f, 676.4f }, // 1/4
+        juce::Point<float> { 115.9f, 642.0f }, // 1/3
+        juce::Point<float> { 131.5f, 613.0f }, // 1/2
+        juce::Point<float> { 175.9f, 601.3f }, // 1x
+        juce::Point<float> { 220.8f, 612.8f }, // 2x
+        juce::Point<float> { 237.4f, 643.3f }, // 3x
+        juce::Point<float> { 236.8f, 677.4f }, // 4x
+        juce::Point<float> { 221.5f, 704.8f }  // 8x
+    };
+    const int clockMultLedIndex = juce::jlimit(0, 8, juce::roundToInt(clockMult.getValue()));
+    drawActiveLed(clockMultLedCentres[(size_t) clockMultLedIndex].x,
+                  clockMultLedCentres[(size_t) clockMultLedIndex].y);
+
     for (int i = 0; i < 8; ++i)
     {
-        constexpr std::array<float, 8> stepLedXs { 424.0f, 517.0f, 608.0f, 699.0f,
-                                                   792.0f, 884.0f, 975.0f, 1067.0f };
-        const auto led = mapPanelRect(stepLedXs[(size_t) i] - 4.5f, 592.5f, 9.0f, 9.0f).toFloat();
+        constexpr std::array<juce::Point<float>, 8> stepLedCentres {
+            juce::Point<float> { 433.1f, 591.3f },
+            juce::Point<float> { 528.3f, 591.3f },
+            juce::Point<float> { 621.5f, 591.3f },
+            juce::Point<float> { 714.5f, 591.4f },
+            juce::Point<float> { 806.5f, 591.3f },
+            juce::Point<float> { 900.6f, 591.0f },
+            juce::Point<float> { 995.2f, 591.6f },
+            juce::Point<float> { 1089.4f, 591.2f }
+        };
         if (i == currentLedStep)
-        {
-            g.setColour(kLedRed.withAlpha(0.28f));
-            g.fillEllipse(led.expanded(5.0f));
-            g.setColour(kLedRed);
-            g.fillEllipse(led);
-        }
+            drawActiveLed(stepLedCentres[(size_t) i].x, stepLedCentres[(size_t) i].y);
     }
 
     std::vector<PatchCable> cables;
@@ -1093,41 +1121,57 @@ void DFAFEditor::paint(juce::Graphics& g)
 
 void DFAFEditor::resized()
 {
+    const auto panelScale = getPanelImageBounds().getWidth() / kPanelSourceWidth;
+
     auto setKnobCentre = [this](juce::Slider& slider, float cx, float cy, float size)
     {
         slider.setBounds(mapPanelRect(cx - size * 0.5f, cy - size * 0.5f, size, size));
     };
 
+    auto setIndicatorCentre = [panelScale](juce::Slider& slider, float dx, float dy)
+    {
+        slider.getProperties().set("panelIndicatorCentreX", dx * panelScale);
+        slider.getProperties().set("panelIndicatorCentreY", dy * panelScale);
+    };
+
     setKnobCentre(vcoDecay, 132.5f, 160.0f, 62.0f);
-    vcoDecay.getProperties().set("panelIndicatorCentreX", 0.0);
-    vcoDecay.getProperties().set("panelIndicatorCentreY", 0.0);
+    setIndicatorCentre(vcoDecay, -2.0f, -3.5f);
     setKnobCentre(vco1EgAmount, 399.0f, 159.5f, 62.0f);
-    vco1EgAmount.getProperties().set("panelIndicatorCentreX", 0.0);
+    setIndicatorCentre(vco1EgAmount, 2.0f, -3.0f);
     setKnobCentre(vco1Frequency, 543.0f, 161.0f, 82.0f);
-    vco1Frequency.getProperties().set("panelIndicatorCentreX", 0.0);
-    vco1Frequency.getProperties().set("panelIndicatorCentreY", 0.0);
+    setIndicatorCentre(vco1Frequency, -1.0f, 0.5f);
     setKnobCentre(vco1Level, 785.0f, 159.0f, 60.0f);
+    setIndicatorCentre(vco1Level, 2.0f, -2.5f);
     setKnobCentre(noiseLevel, 905.0f, 160.5f, 60.0f);
+    setIndicatorCentre(noiseLevel, 1.0f, -4.0f);
     setKnobCentre(cutoff, 1134.0f, 165.0f, 78.0f);
+    setIndicatorCentre(cutoff, -1.0f, -2.0f);
     setKnobCentre(resonance, 1252.0f, 160.5f, 62.0f);
+    setIndicatorCentre(resonance, -1.5f, -3.5f);
     setKnobCentre(vcaEg, 1381.5f, 160.5f, 62.0f);
+    setIndicatorCentre(vcaEg, -1.0f, -4.5f);
 
     setKnobCentre(fmAmount, 130.0f, 400.5f, 62.0f);
-    fmAmount.getProperties().set("panelIndicatorCentreX", 0.0);
-    fmAmount.getProperties().set("panelIndicatorCentreY", 0.0);
+    setIndicatorCentre(fmAmount, 0.0f, -4.0f);
     setKnobCentre(vco2EgAmount, 399.5f, 400.0f, 62.0f);
-    vco2EgAmount.getProperties().set("panelIndicatorCentreX", 0.0);
+    setIndicatorCentre(vco2EgAmount, 0.0f, -3.5f);
     setKnobCentre(vco2Frequency, 543.5f, 401.5f, 82.0f);
-    vco2Frequency.getProperties().set("panelIndicatorCentreX", 0.0);
-    vco2Frequency.getProperties().set("panelIndicatorCentreY", 0.0);
+    setIndicatorCentre(vco2Frequency, -1.5f, 0.5f);
     setKnobCentre(vco2Level, 783.5f, 401.0f, 60.0f);
+    setIndicatorCentre(vco2Level, -0.5f, -5.0f);
     setKnobCentre(vcfDecay, 960.0f, 401.0f, 62.0f);
+    setIndicatorCentre(vcfDecay, -1.0f, -5.0f);
     setKnobCentre(vcfEgAmount, 1096.5f, 400.5f, 62.0f);
+    setIndicatorCentre(vcfEgAmount, -0.5f, -4.5f);
     setKnobCentre(noiseVcfMod, 1230.5f, 401.0f, 62.0f);
+    setIndicatorCentre(noiseVcfMod, -0.5f, -5.0f);
     setKnobCentre(vcaDecay, 1381.5f, 313.5f, 62.0f);
+    setIndicatorCentre(vcaDecay, -1.5f, 0.5f);
 
     setKnobCentre(volume, 1381.5f, 458.0f, 62.0f);
+    setIndicatorCentre(volume, -1.0f, -1.0f);
     setKnobCentre(clockMult, 176.0f, 656.5f, 88.0f);
+    setIndicatorCentre(clockMult, 0.0f, -11.5f);
     resetButton.setBounds(mapPanelRect(151.0f, 747.0f, 49.0f, 37.0f));
 
     seqPitchModBox.setBounds(mapPanelRect(222.0f, 143.0f, 86.0f, 76.0f));
@@ -1145,10 +1189,20 @@ void DFAFEditor::resized()
                                                  806.0f, 900.0f, 994.5f, 1089.5f };
     constexpr std::array<float, 8> stepVelocityXs { 431.0f, 527.0f, 620.0f, 713.0f,
                                                     805.0f, 900.0f, 994.5f, 1089.0f };
+    constexpr std::array<float, 8> stepPitchIndicatorDx { -0.5f, -0.5f, -0.5f, -0.5f,
+                                                          -0.5f, -0.5f, -0.5f, -0.5f };
+    constexpr std::array<float, 8> stepPitchIndicatorDy { 0.0f, -0.5f, -0.5f, -1.0f,
+                                                          -1.0f, -1.0f, -1.5f, -1.5f };
+    constexpr std::array<float, 8> stepVelocityIndicatorDy { 1.5f, 1.0f, 1.0f, 0.5f,
+                                                             -0.5f, -0.5f, -1.0f, -1.0f };
     for (int i = 0; i < 8; ++i)
     {
         setKnobCentre(stepPitch[i], stepPitchXs[(size_t) i], 631.5f, 50.0f);
         setKnobCentre(stepVelocity[i], stepVelocityXs[(size_t) i], 711.0f, 50.0f);
+        setIndicatorCentre(stepPitch[i],
+                           stepPitchIndicatorDx[(size_t) i],
+                           stepPitchIndicatorDy[(size_t) i]);
+        setIndicatorCentre(stepVelocity[i], 0.0f, stepVelocityIndicatorDy[(size_t) i]);
     }
 
     presetBox.setBounds(mapPanelRect(175.0f, 830.0f, 329.0f, 45.0f));

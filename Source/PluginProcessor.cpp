@@ -6,6 +6,7 @@ namespace
 constexpr auto kInitPresetName = "Init";
 constexpr auto kPresetExtension = ".dfafpreset";
 constexpr auto kPresetNameAttribute = "currentPresetName";
+constexpr float kClockMultInitIndex = 4.0f; // 1x
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout DFAFProcessor::createParameterLayout()
@@ -284,6 +285,8 @@ bool DFAFProcessor::deletePreset(const juce::String& presetName)
 void DFAFProcessor::loadInitPreset()
 {
     apvts.replaceState(defaultState.createCopy());
+    if (auto* clockMultParam = apvts.getParameter("clockMult"))
+        clockMultParam->setValueNotifyingHost(clockMultParam->convertTo0to1(kClockMultInitIndex));
     clearPatches();
 
     {

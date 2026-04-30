@@ -153,7 +153,7 @@ public:
             f.vco2Raw = lastVco2out;
 
             float noise   = random.nextFloat() * 2.0f - 1.0f;
-            float toneAmp = vcoEnv;
+            float toneAmp = 1.0f;
             float tone    = readOscillatorDecimatorOutput();
             f.raw      = tone * toneAmp + noise * noiseLevel;
             f.vcfEnv   = lastVcfEnv * vel;

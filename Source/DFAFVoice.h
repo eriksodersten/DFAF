@@ -273,9 +273,23 @@ private:
             return squarePolyBlep(phase, dt);
         }
 
-        float p   = phase * 4.0f;
-        float tri = (p < 1.0f) ? p : (p < 3.0f) ? 2.0f - p : p - 4.0f;
-        return std::tanh(2.2f * tri) / std::tanh(2.2f);
+        return renderTriangleTableApprox(phase);
+    }
+
+    static float renderTriangleTableApprox(float phase)
+    {
+        constexpr float twoPi = juce::MathConstants<float>::twoPi;
+        float out = 0.0f;
+        float sign = 1.0f;
+
+        for (int harmonic = 1; harmonic <= 31; harmonic += 2)
+        {
+            const float h = (float)harmonic;
+            out += sign * std::sin(twoPi * h * phase) / (h * h);
+            sign = -sign;
+        }
+
+        return out * (8.0f / (juce::MathConstants<float>::pi * juce::MathConstants<float>::pi));
     }
 
     void clearOscillatorDecimator()

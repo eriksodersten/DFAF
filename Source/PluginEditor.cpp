@@ -219,19 +219,20 @@ int wavePanelIndex(int parameterIndex)
     return parameterIndex == 1 ? 0 : 1; // TRI is left on the panel; square is right.
 }
 
-juce::Path makeCablePath(juce::Point<float> src, juce::Point<float> dst, float slack = 1.0f)
+juce::Path makeCablePath(juce::Point<float> src, juce::Point<float> dst, float slack = 1.0f, float lift = 0.0f)
 {
     const auto dx = dst.x - src.x;
     const auto dy = dst.y - src.y;
     const auto distance = std::sqrt(dx * dx + dy * dy);
     const auto side = dx >= 0.0f ? 1.0f : -1.0f;
-    const auto sag = juce::jlimit(14.0f, 74.0f, distance * 0.15f) * slack;
-    const auto bow = juce::jlimit(28.0f, 112.0f, std::abs(dx) * 0.55f + 24.0f);
+    const auto sag = juce::jlimit(18.0f, 92.0f, distance * 0.19f) * slack + lift;
+    const auto bow = juce::jlimit(34.0f, 136.0f, std::abs(dx) * 0.48f + 32.0f);
+    const auto verticalBias = juce::jlimit(-28.0f, 28.0f, dy * 0.16f);
 
     juce::Path cable;
     cable.startNewSubPath(src);
-    cable.cubicTo(src.x + bow * side, src.y + sag,
-                  dst.x - bow * side, dst.y + sag,
+    cable.cubicTo(src.x + bow * side, src.y + sag + verticalBias,
+                  dst.x - bow * side, dst.y + sag - verticalBias,
                   dst.x, dst.y);
     return cable;
 }
@@ -250,46 +251,53 @@ juce::Colour cableColourFor(const PatchCable& cable, int index)
 }
 
 void drawCable(juce::Graphics& g, juce::Point<float> src, juce::Point<float> dst,
-               juce::Colour colour, float alpha, bool preview)
+               juce::Colour colour, float alpha, bool preview, int visualIndex = 0)
 {
-    auto cablePath = makeCablePath(src, dst, preview ? 0.82f : 1.0f);
-    const auto width = preview ? 4.8f : 7.4f;
+    const float lift = preview ? 0.0f : (float)((visualIndex % 5) - 2) * 3.0f;
+    auto cablePath = makeCablePath(src, dst, preview ? 0.72f : 1.0f, lift);
+    const auto width = preview ? 4.2f : 6.2f;
 
     auto shadowPath = cablePath;
-    shadowPath.applyTransform(juce::AffineTransform::translation(2.0f, 3.2f));
-    g.setColour(juce::Colour(0x8a000000).withAlpha(alpha * 0.62f));
-    g.strokePath(shadowPath, juce::PathStrokeType(width + 5.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    shadowPath.applyTransform(juce::AffineTransform::translation(2.2f, 3.6f));
+    g.setColour(juce::Colour(0x8a000000).withAlpha(alpha * 0.50f));
+    g.strokePath(shadowPath, juce::PathStrokeType(width + 5.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    g.setColour(colour.darker(0.72f).withAlpha(alpha));
-    g.strokePath(cablePath, juce::PathStrokeType(width + 2.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour(colour.darker(0.82f).withAlpha(alpha));
+    g.strokePath(cablePath, juce::PathStrokeType(width + 2.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    g.setColour(colour.darker(0.08f).withAlpha(alpha));
+    g.setColour(colour.darker(0.12f).withAlpha(alpha));
     g.strokePath(cablePath, juce::PathStrokeType(width, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     auto lowlightPath = cablePath;
-    lowlightPath.applyTransform(juce::AffineTransform::translation(0.0f, 1.1f));
-    g.setColour(juce::Colours::black.withAlpha(alpha * 0.24f));
-    g.strokePath(lowlightPath, juce::PathStrokeType(width * 0.34f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    lowlightPath.applyTransform(juce::AffineTransform::translation(0.0f, 1.35f));
+    g.setColour(juce::Colours::black.withAlpha(alpha * 0.18f));
+    g.strokePath(lowlightPath, juce::PathStrokeType(width * 0.28f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     auto highlightPath = cablePath;
-    highlightPath.applyTransform(juce::AffineTransform::translation(-0.55f, -1.25f));
-    g.setColour(colour.brighter(0.72f).withAlpha(alpha * (preview ? 0.28f : 0.38f)));
-    g.strokePath(highlightPath, juce::PathStrokeType(width * 0.18f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    highlightPath.applyTransform(juce::AffineTransform::translation(-0.65f, -1.45f));
+    g.setColour(colour.brighter(0.86f).withAlpha(alpha * (preview ? 0.30f : 0.42f)));
+    g.strokePath(highlightPath, juce::PathStrokeType(width * 0.16f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
 void drawCablePlug(juce::Graphics& g, juce::Point<float> centre, juce::Colour colour, bool active)
 {
-    auto collar = juce::Rectangle<float>(18.0f, 18.0f).withCentre(centre);
-    g.setColour(juce::Colour(0x75000000));
-    g.fillEllipse(collar.translated(1.2f, 1.8f));
-    g.setColour(juce::Colour(0xff151515).withAlpha(active ? 0.96f : 0.86f));
-    g.fillEllipse(collar);
+    auto collar = juce::Rectangle<float>(19.5f, 19.5f).withCentre(centre);
+    g.setColour(juce::Colour(0x72000000));
+    g.fillEllipse(collar.translated(1.4f, 2.1f));
 
-    auto insert = collar.reduced(5.2f);
-    g.setColour(colour.darker(0.35f).withAlpha(active ? 0.92f : 0.76f));
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff454545), collar.getX(), collar.getY(),
+                                           juce::Colour(0xff101010), collar.getRight(), collar.getBottom(), false));
+    g.fillEllipse(collar);
+    g.setColour(juce::Colour(0xff050505).withAlpha(active ? 0.86f : 0.68f));
+    g.drawEllipse(collar.reduced(0.55f), 1.1f);
+
+    auto insert = collar.reduced(4.7f);
+    g.setColour(colour.darker(0.48f).withAlpha(active ? 0.96f : 0.78f));
     g.fillEllipse(insert);
-    g.setColour(colour.brighter(0.55f).withAlpha(0.30f));
-    g.fillEllipse(insert.withTrimmedBottom(insert.getHeight() * 0.55f).reduced(0.8f, 0.0f));
+    g.setColour(colour.brighter(0.70f).withAlpha(active ? 0.30f : 0.20f));
+    g.fillEllipse(insert.withTrimmedBottom(insert.getHeight() * 0.58f).reduced(0.9f, 0.0f));
+    g.setColour(juce::Colours::white.withAlpha(active ? 0.16f : 0.09f));
+    g.fillEllipse(insert.reduced(3.0f).translated(-1.4f, -1.6f));
 }
 }
 
@@ -1005,9 +1013,10 @@ void DFAFEditor::drawJackPanel(juce::Graphics& g, juce::Rectangle<int> area,
             continue;
 
         const auto cableColour = cableColourFor(cable, cableIndex++);
-        drawCable(g, src, dst, cableColour, 0.96f, false);
+        drawCable(g, src, dst, cableColour, 0.96f, false, cableIndex);
     }
 
+    cableIndex = 0;
     for (const auto& cable : cables)
     {
         if (!cable.enabled)
@@ -1279,13 +1288,13 @@ void DFAFEditor::resized()
     setKnobCentre(vco1EgAmount, 399.0f, 159.5f, 62.0f);
     setIndicatorCentre(vco1EgAmount, 2.0f, -3.0f);
     setKnobCentre(vco1Frequency, 543.0f, 161.0f, 82.0f);
-    setIndicatorCentre(vco1Frequency, -1.0f, 0.5f);
+    setIndicatorCentre(vco1Frequency, 0.0f, -2.0f);
     setKnobCentre(vco1Level, 785.0f, 159.0f, 60.0f);
     setIndicatorCentre(vco1Level, 2.0f, -2.5f);
     setKnobCentre(noiseLevel, 905.0f, 160.5f, 60.0f);
     setIndicatorCentre(noiseLevel, 1.0f, -4.0f);
     setKnobCentre(cutoff, 1134.0f, 165.0f, 78.0f);
-    setIndicatorCentre(cutoff, -1.0f, -2.0f);
+    setIndicatorCentre(cutoff, 0.0f, -2.0f);
     setKnobCentre(resonance, 1252.0f, 160.5f, 62.0f);
     setIndicatorCentre(resonance, -1.5f, -3.5f);
     setKnobCentre(vcaEg, 1381.5f, 160.5f, 62.0f);
@@ -1296,7 +1305,7 @@ void DFAFEditor::resized()
     setKnobCentre(vco2EgAmount, 399.5f, 400.0f, 62.0f);
     setIndicatorCentre(vco2EgAmount, 0.0f, -3.5f);
     setKnobCentre(vco2Frequency, 543.5f, 401.5f, 82.0f);
-    setIndicatorCentre(vco2Frequency, -1.5f, 0.5f);
+    setIndicatorCentre(vco2Frequency, 0.0f, -2.0f);
     setKnobCentre(vco2Level, 783.5f, 401.0f, 60.0f);
     setIndicatorCentre(vco2Level, -0.5f, -5.0f);
     setKnobCentre(vcfDecay, 960.0f, 401.0f, 62.0f);

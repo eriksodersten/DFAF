@@ -285,7 +285,8 @@ private:
         for (int harmonic = 1; harmonic <= 31; harmonic += 2)
         {
             const float h = (float)harmonic;
-            out += sign * std::sin(twoPi * h * phase) / (h * h);
+            const float highHarmonicRollOff = (harmonic <= 9) ? 1.0f : 0.72f;
+            out += sign * highHarmonicRollOff * std::sin(twoPi * h * phase) / (h * h);
             sign = -sign;
         }
 
